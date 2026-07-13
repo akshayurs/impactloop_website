@@ -4,6 +4,9 @@
   "version": "2.0.0",
   "type": "module",
   "description": "Impact Loop — unified marketing site + subscription/creator portal.",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
