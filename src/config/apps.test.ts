@@ -6,7 +6,7 @@ describe('app registry', () => {
     const e = getApp('crackloop')
     expect(e).toBeDefined()
     expect(e!.displayName).toBe('CrackLoop')
-    expect(e!.playProductIds.pro).toMatch(/pro/)
+    expect(e!.playProductIds.pro).toBe('pro_monthly')
   })
   it('returns undefined for unknown appId', () => {
     expect(getApp('nope')).toBeUndefined()

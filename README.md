@@ -77,11 +77,19 @@ GitHub Pages stay live throughout.
 
 ```
 src/
-  lib/         smooth scroll, reduced-motion, WebGL detection, in-view hook
-  three/       HeroCanvas, LoopMesh, Particles, ParticleScene, GLSL shaders
-  components/  Cursor, Magnetic, SplitText, TiltCard, Marquee, Counter, Reveal, Nav, Footer, Logo
-  sections/    Hero, Concept, CrackLoop, Features, Stats, Process, ParticlesSection, CTA
-scripts/       make-assets.mjs (SVG → OG/icon PNGs)
+  app/          App Router: layout.tsx (root + metadata), page.tsx (/), 
+                account/page.tsx (protected), globals.css
+  components/   React components: MarketingPage, Providers, AuthButton,
+                Cursor, Magnetic, SplitText, TiltCard, Marquee, Counter, Reveal, Nav, Footer, Logo
+  sections/     Marketing page sections: Hero, Concept, CrackLoop, Features, Stats, 
+                Process, ParticlesSection, CTA
+  three/        R3F scenes, meshes, shaders: HeroCanvas, LoopMesh, Particles, ParticleScene
+  lib/          firebase.ts (client SDK init), auth.tsx (Google auth context),
+                smooth-scroll, reduced-motion, WebGL, in-view hooks
+  config/       apps.ts (vendored app registry)
+public/         Static assets, legal pages (terms.html, privacy.html), icons, OG image
+scripts/        make-assets.mjs (SVG → OG/icon PNGs)
+docs/           Design spec, plans, DEPLOY.md, registry-sync.md
 ```
 
 ## Contact
