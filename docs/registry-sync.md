@@ -4,7 +4,7 @@ The `src/config/apps.ts` registry is a **vendored copy** of app metadata from th
 
 ## Registry Structure
 
-Each app entry in `APPS` contains:
+Each app entry in `APPS` is typed as `AppRegistryEntry` and contains:
 
 ```ts
 {
@@ -39,9 +39,18 @@ When a new app is created or an existing flavor is updated in StudyAppTemplate:
    - `theme.primary` and `theme.accent` from root
 3. **Add to registry:** Open `src/config/apps.ts`, add/update the entry in `APPS`, ensure type safety
 4. **Set Razorpay IDs:** Once Razorpay plans are created in the dashboard, update `razorpayPlanIds.pro` and `razorpayPlanIds.ai` (currently null for all apps)
-5. **Test:** Run `pnpm test src/config/apps.test.ts` to confirm type checks pass
+5. **Test:** Run `pnpm test src/config/apps.test.ts` to confirm tests pass
 6. **Typecheck:** Run `pnpm typecheck` to verify no type errors
 7. **Commit:** Include the registry update in the same commit as any related changes
+
+## API Surface
+
+The registry exports:
+
+- **`AppRegistryEntry`** — type definition for a single app's metadata
+- **`APPS`** — `Record<string, AppRegistryEntry>` of all registered apps
+- **`getApp(appId: string): AppRegistryEntry | undefined`** — retrieve app by ID; returns undefined if not found
+- **`listApps(): AppRegistryEntry[]`** — retrieve all registered apps as an array
 
 ## Example: Adding CrackLoop
 

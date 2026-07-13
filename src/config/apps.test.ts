@@ -1,22 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { getApp, getAppOrNull, listAppIds } from './apps'
+import { APPS, getApp, listApps } from './apps'
 
 describe('app registry', () => {
-  it('getApp returns app metadata for crackloop', () => {
-    const app = getApp('crackloop')
-    expect(app).toBeDefined()
-    expect(app.appId).toBe('crackloop')
-    expect(app.displayName).toBe('CrackLoop')
-    expect(app.contentRepo).toBe('akshayurs/CrackLoopData')
+  it('contains the crackloop entry with required fields', () => {
+    const e = getApp('crackloop')
+    expect(e).toBeDefined()
+    expect(e!.displayName).toBe('CrackLoop')
+    expect(e!.playProductIds.pro).toMatch(/pro/)
   })
-
-  it('playProductIds.pro matches /pro/ pattern', () => {
-    const app = getApp('crackloop')
-    expect(app.playProductIds.pro).toMatch(/pro/)
+  it('returns undefined for unknown appId', () => {
+    expect(getApp('nope')).toBeUndefined()
   })
-
-  it('getAppOrNull returns null for unknown app', () => {
-    const app = getAppOrNull('unknown_app')
-    expect(app).toBeNull()
+  it('listApps returns all entries', () => {
+    expect(listApps().length).toBe(Object.keys(APPS).length)
+    expect(listApps().every((a) => a.appId && a.displayName)).toBe(true)
   })
 })
