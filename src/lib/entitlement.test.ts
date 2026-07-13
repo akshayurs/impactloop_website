@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { entitlementsForProduct, tierForProduct } from './entitlement'
+import { entitlementsForProduct, gatedEntitlements, tierForProduct } from './entitlement'
 
 // Truth table mirrored verbatim from StudyAppTemplate `functions/src/subscription.ts`
 // (PRODUCT_TIER + PRODUCT_ENTITLEMENTS). Do not diverge from that source of truth.
@@ -48,18 +48,20 @@ describe('tierForProduct', () => {
   })
 })
 
-describe('gated entitlement values (status !== active/entitled)', () => {
-  it('expired status yields both grants false regardless of product', () => {
-    const grants = entitlementsForProduct('ai_monthly')
-    const entitled = false // status "expired" is not active/grace
-    const gated = { unlimitedAi: entitled && grants.unlimitedAi, adFree: entitled && grants.adFree }
-    expect(gated).toEqual({ unlimitedAi: false, adFree: false })
+describe('gatedEntitlements', () => {
+  it('active ai_monthly -> both grants true', () => {
+    expect(gatedEntitlements('ai_monthly', true)).toEqual({ unlimitedAi: true, adFree: true })
   })
 
-  it('active status yields the product grants unmodified', () => {
-    const grants = entitlementsForProduct('ai_monthly')
-    const entitled = true
-    const gated = { unlimitedAi: entitled && grants.unlimitedAi, adFree: entitled && grants.adFree }
-    expect(gated).toEqual({ unlimitedAi: true, adFree: true })
+  it('inactive ai_monthly -> both grants forced false despite product grants', () => {
+    expect(gatedEntitlements('ai_monthly', false)).toEqual({ unlimitedAi: false, adFree: false })
+  })
+
+  it('active pro_monthly -> per-product grants preserved', () => {
+    expect(gatedEntitlements('pro_monthly', true)).toEqual({ unlimitedAi: false, adFree: true })
+  })
+
+  it('active unknown product id -> both grants false', () => {
+    expect(gatedEntitlements('unknown_id', true)).toEqual({ unlimitedAi: false, adFree: false })
   })
 })

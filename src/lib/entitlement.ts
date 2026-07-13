@@ -29,6 +29,16 @@ export function tierForProduct(productId: string): 'standard' | 'higher' | null 
   return PRODUCT_TIER[productId] ?? null
 }
 
+/** Entitlement grants gated by whether the subscription is currently active.
+ *  When inactive, all grants are false regardless of product. */
+export function gatedEntitlements(productId: string, active: boolean): Grants {
+  const grants = entitlementsForProduct(productId)
+  return {
+    unlimitedAi: active && grants.unlimitedAi,
+    adFree: active && grants.adFree,
+  }
+}
+
 export async function writeEntitlement(
   uid: string,
   appId: string,
@@ -41,7 +51,6 @@ export async function writeEntitlement(
     active: boolean
   }
 ): Promise<void> {
-  const grants = entitlementsForProduct(args.productId)
   await adminDb()
     .doc(`users/${uid}/apps/${appId}`)
     .set(
@@ -56,10 +65,7 @@ export async function writeEntitlement(
           source: 'web',
           lastVerifiedAt: FieldValue.serverTimestamp(),
         },
-        entitlements: {
-          unlimitedAi: args.active && grants.unlimitedAi,
-          adFree: args.active && grants.adFree,
-        },
+        entitlements: gatedEntitlements(args.productId, args.active),
       },
       { merge: true }
     )
