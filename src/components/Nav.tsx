@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Logo from './Logo'
 import Magnetic from './Magnetic'
+import AuthButton from './AuthButton'
 import { scrollToSection } from '../lib/useSmoothScroll'
 
 const LINKS = [
@@ -60,7 +61,8 @@ export default function Nav() {
             ))}
           </ul>
 
-          <div className="hidden md:block">
+          <div className="hidden items-center gap-4 md:flex">
+            <AuthButton />
             <Magnetic>
               <a
                 href="#cta"

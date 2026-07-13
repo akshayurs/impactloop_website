@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import '@fontsource-variable/space-grotesk'
 import '@fontsource-variable/inter'
 import './globals.css'
+import Providers from '@/components/Providers'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://impactloopapps.github.io'),
@@ -24,7 +25,9 @@ export const viewport: Viewport = { themeColor: '#05060A', colorScheme: 'dark' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }
