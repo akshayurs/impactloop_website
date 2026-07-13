@@ -78,14 +78,14 @@ export default function Footer() {
           <p>© {new Date().getFullYear()} Impact Loop. Crafted with intent.</p>
           <div className="flex items-center gap-6">
             <a
-              href={`${import.meta.env.BASE_URL}terms.html`}
+              href="/terms.html"
               data-cursor
               className="text-white/60 transition-colors hover:text-white"
             >
               Terms
             </a>
             <a
-              href={`${import.meta.env.BASE_URL}privacy.html`}
+              href="/privacy.html"
               data-cursor
               className="text-white/60 transition-colors hover:text-white"
             >

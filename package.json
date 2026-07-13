@@ -1,22 +1,25 @@
 {
   "name": "impact-loop-website",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Marketing website for Impact Loop — an indie app studio.",
+  "description": "Impact Loop — unified marketing site + subscription/creator portal.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "assets": "node scripts/make-assets.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "@react-three/postprocessing": "^2.16.3",
+    "firebase": "^10.13.0",
     "gsap": "^3.12.5",
     "lenis": "^1.1.18",
+    "next": "^14.2.15",
     "postprocessing": "^6.36.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -25,15 +28,15 @@
   "devDependencies": {
     "@fontsource-variable/inter": "^5.1.1",
     "@fontsource-variable/space-grotesk": "^5.1.1",
+    "@types/node": "^20.14.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
-    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "sharp": "^0.33.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vitest": "^2.1.0"
   }
 }

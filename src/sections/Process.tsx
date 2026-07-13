@@ -92,7 +92,7 @@ export default function Process() {
               <div
                 key={s.k}
                 data-idx={i}
-                ref={(el) => (stepRefs.current[i] = el)}
+                ref={(el) => { stepRefs.current[i] = el }}
                 className="flex min-h-[60vh] flex-col justify-center lg:min-h-[80vh]"
               >
                 <Reveal>
