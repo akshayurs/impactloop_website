@@ -14,7 +14,7 @@ export const APPS: Record<string, AppRegistryEntry> = {
     displayName: 'CrackLoop',
     contentRepo: 'akshayurs/CrackLoopData',
     playProductIds: { pro: 'pro_monthly', ai: 'ai_monthly' },
-    razorpayPlanIds: { pro: null, ai: null },
+    razorpayPlanIds: { pro: 'plan_TD5htjZ31pJrDQ', ai: 'plan_TD5i6jOF0sqNxw' },
     theme: { primary: '#7C5CFF', accent: '#22D3EE' },
   },
 }
