@@ -39,13 +39,15 @@ export function gatedEntitlements(productId: string, active: boolean): Grants {
   }
 }
 
-/** True if a stored subscription is live (should block a new checkout). */
+/** True only if a stored subscription is currently live (blocks a new checkout).
+ *  Allowlist by design: any cancelled/expired/completed/halted/paused/unknown
+ *  status is NOT live, so a lapsed user can always re-subscribe (no lockout). */
 export function isLiveSubscription(
   sub: { status?: string; razorpaySubscriptionId?: string } | undefined | null
 ): boolean {
   if (!sub || !sub.razorpaySubscriptionId) return false
-  const dead = new Set(['cancelled', 'canceled', 'completed', 'expired'])
-  return !dead.has((sub.status ?? '').toLowerCase())
+  const live = new Set(['active', 'authenticated', 'pending', 'created'])
+  return live.has((sub.status ?? '').toLowerCase())
 }
 
 export async function writeEntitlement(

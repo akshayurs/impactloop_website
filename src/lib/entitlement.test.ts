@@ -67,10 +67,24 @@ describe('gatedEntitlements', () => {
 })
 
 describe('isLiveSubscription', () => {
+  // Allowlist: only these statuses are considered live
   it('status active + id -> true', () => {
     expect(isLiveSubscription({ status: 'active', razorpaySubscriptionId: 'sub_1' })).toBe(true)
   })
 
+  it('status authenticated + id -> true', () => {
+    expect(isLiveSubscription({ status: 'authenticated', razorpaySubscriptionId: 'sub_1' })).toBe(true)
+  })
+
+  it('status pending + id -> true', () => {
+    expect(isLiveSubscription({ status: 'pending', razorpaySubscriptionId: 'sub_1' })).toBe(true)
+  })
+
+  it('status created + id -> true', () => {
+    expect(isLiveSubscription({ status: 'created', razorpaySubscriptionId: 'sub_1' })).toBe(true)
+  })
+
+  // Any revoked/dead/unknown status is NOT live (allows re-subscribe)
   it('no razorpaySubscriptionId -> false', () => {
     expect(isLiveSubscription({ status: 'active' })).toBe(false)
   })
@@ -89,6 +103,18 @@ describe('isLiveSubscription', () => {
 
   it('status expired -> false', () => {
     expect(isLiveSubscription({ status: 'expired', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status halted (payment failed) -> false, allows re-subscribe', () => {
+    expect(isLiveSubscription({ status: 'halted', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status paused -> false', () => {
+    expect(isLiveSubscription({ status: 'paused', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status unknown -> false, fails safe', () => {
+    expect(isLiveSubscription({ status: 'weird_new_status', razorpaySubscriptionId: 'sub_1' })).toBe(false)
   })
 
   it('undefined sub -> false', () => {
