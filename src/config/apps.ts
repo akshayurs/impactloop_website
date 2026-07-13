@@ -20,7 +20,7 @@ export const APPS: Record<string, AppRegistryEntry> = {
 }
 
 export function getApp(appId: string): AppRegistryEntry | undefined {
-  return APPS[appId]
+  return Object.prototype.hasOwnProperty.call(APPS, appId) ? APPS[appId] : undefined
 }
 
 export function listApps(): AppRegistryEntry[] {

@@ -11,6 +11,11 @@ describe('app registry', () => {
   it('returns undefined for unknown appId', () => {
     expect(getApp('nope')).toBeUndefined()
   })
+  it('returns undefined for prototype-chain keys', () => {
+    expect(getApp('__proto__')).toBeUndefined()
+    expect(getApp('constructor')).toBeUndefined()
+    expect(getApp('hasOwnProperty')).toBeUndefined()
+  })
   it('listApps returns all entries', () => {
     expect(listApps().length).toBe(Object.keys(APPS).length)
     expect(listApps().every((a) => a.appId && a.displayName)).toBe(true)
