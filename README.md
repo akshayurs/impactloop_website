@@ -5,13 +5,19 @@ Marketing site for **Impact Loop**, an indie app studio, featuring its flagship 
 reveals, particle systems, and tasteful micro-interactions — built to feel like a top-tier product
 site while staying fast and accessible.
 
-**Live:** https://impactloopapps.github.io/website/
+**Live:** https://impactloopapps.github.io/website/ — the GitHub Pages site (branch
+`main`) remains the live marketing site until cutover. This branch
+(`feat/unified-nextjs-portal`) is a Next.js rewrite deployed to a **Vercel preview**;
+it adds a unified portal (auth / cross-app subscriptions / creator / admin), in
+progress. See [Status](#status).
 
 ## Stack
 
 | Concern | Choice |
 | --- | --- |
-| Build / framework | [Vite](https://vitejs.dev) + React 18 + TypeScript |
+| Framework | [Next.js 14](https://nextjs.org) (App Router) + React 18 + TypeScript |
+| Hosting | [Vercel](https://vercel.com) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
+| Auth | [Firebase](https://firebase.google.com) — Google sign-in |
 | 3D | [Three.js](https://threejs.org) via [React Three Fiber](https://r3f.docs.pmnd.rs) + drei |
 | Post-processing | `@react-three/postprocessing` (bloom, chromatic aberration, vignette) |
 | Shaders | Custom GLSL — simplex-noise displacement + iridescent fresnel; GPU particle loop |
@@ -32,30 +38,40 @@ site while staying fast and accessible.
 
 ## Run locally
 
-Requires Node 20+ and [pnpm](https://pnpm.io).
+Requires Node 20+ and [pnpm](https://pnpm.io). Copy `.env.local.example` to
+`.env.local` and fill in the `NEXT_PUBLIC_FIREBASE_*` values for Google sign-in.
 
 ```bash
 pnpm install
-pnpm dev        # dev server at http://localhost:5173/website/
-pnpm build      # production build to dist/
-pnpm preview    # serve the production build locally
+pnpm dev        # Next.js dev server at http://localhost:3000
+pnpm build      # production build (.next)
+pnpm start      # serve the production build locally
 pnpm typecheck  # TypeScript, no emit
+pnpm test       # Vitest
 pnpm assets     # regenerate favicon/OG PNGs from SVG (needs sharp)
 ```
 
-> The Vite `base` is set to `/website/` (see [vite.config.ts](vite.config.ts)) because the site is
-> served from a GitHub Pages **project page**. The dev/preview URLs therefore include `/website/`.
+Routes: `/` (marketing) and `/account` (auth-gated subscription portal). Static legal
+and icon assets live in `public/` and are served at the site root (`/terms.html`,
+`/privacy.html`, `/favicon.svg`, …).
 
 ## Deployment
 
-Pushing to `main` triggers [.github/workflows/deploy.yml](.github/workflows/deploy.yml):
+This branch deploys to **Vercel** (Next.js preset) — see
+[docs/DEPLOY.md](docs/DEPLOY.md) for the Vercel project setup, required env vars, and
+the Firebase authorized-domains step.
 
-1. Install deps with pnpm and run `pnpm build`.
-2. Upload `dist/` as a Pages artifact (`actions/upload-pages-artifact`).
-3. Publish with `actions/deploy-pages`.
+Until cutover, `main` continues to serve the **live marketing site** via GitHub Pages:
+pushing to `main` triggers [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+(build → upload `dist/` as a Pages artifact → publish). When the portal is ready, this
+branch merges to `main` and Vercel becomes the production deploy.
 
-Pages **Source** is set to *GitHub Actions* (no `gh-pages` branch). `public/.nojekyll` disables
-Jekyll processing and `public/404.html` redirects unknown paths back to the app root.
+## Status
+
+Phase 1 (foundation) on `feat/unified-nextjs-portal`: Next.js scaffold, marketing 3D
+port, Firebase Google auth, vendored app registry, and an auth-gated `/account` page.
+Phase 2 adds cross-app subscriptions (Razorpay), and creator/admin portals. `main` +
+GitHub Pages stay live throughout.
 
 ## Structure
 
