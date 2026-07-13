@@ -22,12 +22,20 @@ export function commissionFor(netAmount: number, commissionPct: number): number 
   return Math.round((netAmount * commissionPct) / 100)
 }
 
+/** A promo is usable only if active AND has a numeric redemption cap not yet reached.
+ *  Fails CLOSED: a missing/non-numeric maxRedemptions is treated as unusable (live-money safety). */
+export function isPromoUsable(p: PromoCode): boolean {
+  if (!p.active) return false
+  if (typeof p.maxRedemptions !== 'number' || !Number.isFinite(p.maxRedemptions)) return false
+  const redeemed = typeof p.redeemed === 'number' ? p.redeemed : 0
+  return redeemed < p.maxRedemptions
+}
+
 /** Reads promoCodes/{code}; returns it only if active and under maxRedemptions, else null. */
 export async function validatePromo(code: string): Promise<PromoCode | null> {
   const snap = await adminDb().doc(`promoCodes/${code}`).get()
   if (!snap.exists) return null
   const p = snap.data() as PromoCode
-  if (!p.active) return null
-  if (typeof p.maxRedemptions === 'number' && p.redeemed >= p.maxRedemptions) return null
+  if (!isPromoUsable(p)) return null
   return { ...p, code }
 }
