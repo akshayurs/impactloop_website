@@ -25,6 +25,11 @@ type AppEntitlementDoc = {
 
 const ACTIVE_STATUSES = new Set(['active', 'authenticated'])
 
+const TIER_LABELS: Record<string, string> = {
+  standard: 'Pro',
+  higher: 'AI',
+}
+
 function AppCard({ appId, displayName, primaryColor }: { appId: string; displayName: string; primaryColor: string }) {
   const { user } = useAuth()
   const [data, setData] = useState<AppEntitlementDoc | null>(null)
@@ -77,7 +82,8 @@ function AppCard({ appId, displayName, primaryColor }: { appId: string; displayN
       ) : (
         <div className="mt-1 space-y-1">
           <div className="text-white/80 text-sm capitalize">
-            {subscription.tier ?? 'unknown'} tier · {subscription.status ?? 'unknown'}
+            {subscription.tier ? (TIER_LABELS[subscription.tier] ?? subscription.tier) : 'unknown'} tier ·{' '}
+            {subscription.status ?? 'unknown'}
           </div>
           {subscription.expiryTimeMillis && (
             <div className="text-white/50 text-xs">

@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase-admin'
 import { getApp } from '@/config/apps'
 import { createSubscription } from '@/lib/razorpay'
 import { parseSubscriptionBody } from '@/lib/subscription-request'
+import { isLiveSubscription } from '@/lib/entitlement'
 
 export const runtime = 'nodejs'
 
@@ -36,6 +37,11 @@ export async function POST(req: Request) {
   }
 
   try {
+    const existing = await adminDb().doc(`users/${uid}/apps/${appId}`).get()
+    if (isLiveSubscription(existing.data()?.subscription)) {
+      return NextResponse.json({ error: 'already-subscribed' }, { status: 409 })
+    }
+
     const sub = await createSubscription({ planId, notes: { uid, appId, tier } })
 
     await adminDb().doc(`razorpaySubscriptions/${sub.id}`).set({
@@ -47,9 +53,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       subscriptionId: sub.id,
-      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      keyId: process.env.RAZORPAY_KEY_ID,
     })
-  } catch {
+  } catch (err) {
+    console.error('razorpay/subscription: failed to create subscription', err)
     return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 })
   }
 }

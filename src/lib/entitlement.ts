@@ -39,6 +39,15 @@ export function gatedEntitlements(productId: string, active: boolean): Grants {
   }
 }
 
+/** True if a stored subscription is live (should block a new checkout). */
+export function isLiveSubscription(
+  sub: { status?: string; razorpaySubscriptionId?: string } | undefined | null
+): boolean {
+  if (!sub || !sub.razorpaySubscriptionId) return false
+  const dead = new Set(['cancelled', 'canceled', 'completed', 'expired'])
+  return !dead.has((sub.status ?? '').toLowerCase())
+}
+
 export async function writeEntitlement(
   uid: string,
   appId: string,

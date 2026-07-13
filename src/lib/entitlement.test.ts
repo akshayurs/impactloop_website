@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { entitlementsForProduct, gatedEntitlements, tierForProduct } from './entitlement'
+import { entitlementsForProduct, gatedEntitlements, isLiveSubscription, tierForProduct } from './entitlement'
 
 // Truth table mirrored verbatim from StudyAppTemplate `functions/src/subscription.ts`
 // (PRODUCT_TIER + PRODUCT_ENTITLEMENTS). Do not diverge from that source of truth.
@@ -63,5 +63,39 @@ describe('gatedEntitlements', () => {
 
   it('active unknown product id -> both grants false', () => {
     expect(gatedEntitlements('unknown_id', true)).toEqual({ unlimitedAi: false, adFree: false })
+  })
+})
+
+describe('isLiveSubscription', () => {
+  it('status active + id -> true', () => {
+    expect(isLiveSubscription({ status: 'active', razorpaySubscriptionId: 'sub_1' })).toBe(true)
+  })
+
+  it('no razorpaySubscriptionId -> false', () => {
+    expect(isLiveSubscription({ status: 'active' })).toBe(false)
+  })
+
+  it('status cancelled -> false', () => {
+    expect(isLiveSubscription({ status: 'cancelled', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status canceled -> false', () => {
+    expect(isLiveSubscription({ status: 'canceled', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status completed -> false', () => {
+    expect(isLiveSubscription({ status: 'completed', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('status expired -> false', () => {
+    expect(isLiveSubscription({ status: 'expired', razorpaySubscriptionId: 'sub_1' })).toBe(false)
+  })
+
+  it('undefined sub -> false', () => {
+    expect(isLiveSubscription(undefined)).toBe(false)
+  })
+
+  it('null sub -> false', () => {
+    expect(isLiveSubscription(null)).toBe(false)
   })
 })

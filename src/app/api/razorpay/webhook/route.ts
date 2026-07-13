@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   const eventId = req.headers.get('x-razorpay-event-id')
-  const idempotencyKey = eventId ?? `${sub.id}:${body.event}`
+  const idempotencyKey = eventId ?? `${sub.id}:${body.event}:${sub.current_end ?? ''}`
   const db = adminDb()
   const eventDocRef = db.doc(`webhookEvents/${idempotencyKey}`)
 
@@ -98,10 +98,11 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ ok: true })
-  } catch {
+  } catch (err) {
     // Transient failure (e.g. Firestore) — 500 makes Razorpay retry, which is
     // safe here since the idempotency marker is only written after a successful
     // entitlement write.
+    console.error('razorpay/webhook: failed to process event', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
