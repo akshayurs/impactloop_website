@@ -1,3 +1,5 @@
+'use client'
+
 import { Suspense, lazy, useEffect, useState } from 'react'
 import SplitText from '../components/SplitText'
 import Magnetic from '../components/Magnetic'

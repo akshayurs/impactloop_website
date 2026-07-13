@@ -1,3 +1,5 @@
+'use client'
+
 import { useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'

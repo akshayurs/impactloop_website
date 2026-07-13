@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useRef } from 'react'
 
 // Custom dot + trailing ring cursor. Desktop / fine-pointer only; uses mix-blend so

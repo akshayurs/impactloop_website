@@ -1,3 +1,5 @@
+'use client'
+
 interface Props {
   className?: string
   showText?: boolean

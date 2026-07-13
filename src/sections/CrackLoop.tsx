@@ -1,3 +1,5 @@
+'use client'
+
 import Reveal from '../components/Reveal'
 import TiltCard from '../components/TiltCard'
 import Magnetic from '../components/Magnetic'

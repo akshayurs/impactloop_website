@@ -1,3 +1,5 @@
+'use client'
+
 import { CSSProperties, ElementType, ReactNode } from 'react'
 import { useInView } from '../lib/useInView'
 

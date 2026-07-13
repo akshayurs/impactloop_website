@@ -1,3 +1,5 @@
+'use client'
+
 // Fixed aurora mesh behind all content. Static blobs (no per-frame animation) so the
 // glass `backdrop-filter` layers aren't forced to resample a moving background.
 export default function GradientMesh() {

@@ -1,3 +1,5 @@
+'use client'
+
 import Counter from '../components/Counter'
 import Reveal from '../components/Reveal'
 

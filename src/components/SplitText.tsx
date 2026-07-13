@@ -1,3 +1,5 @@
+'use client'
+
 import { ElementType, useEffect, useRef } from 'react'
 import { gsap } from 'gsap'
 import { prefersReducedMotion } from '../lib/useReducedMotion'
