@@ -34,6 +34,8 @@ export function AccountView() {
   const [cancelApp, setCancelApp] = useState<string | null>(null)
   const [cancelPending, setCancelPending] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [trialMsg, setTrialMsg] = useState<string | null>(null)
+  const [trialPending, setTrialPending] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -55,6 +57,29 @@ export function AccountView() {
   useEffect(() => {
     void load()
   }, [load])
+
+  async function requestTrial(appId: string) {
+    if (!user) return
+    setTrialPending(true)
+    setTrialMsg(null)
+    try {
+      const token = await user.getIdToken()
+      const res = await fetch('/api/trial', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setTrialMsg(data.error === 'not eligible for trial' ? 'Trial not available for this account.' : 'Trial not available right now.')
+        return
+      }
+      setTrialMsg('Trial started!')
+      await load()
+    } finally {
+      setTrialPending(false)
+    }
+  }
 
   async function confirmCancel() {
     if (!user || !cancelApp) return
@@ -121,11 +146,15 @@ export function AccountView() {
       ) : summary.apps.length === 0 ? (
         <Card className="mt-4">
           <p className="text-sm text-muted">No subscriptions yet.</p>
-          <div className="mt-4">
+          <div className="mt-4 flex gap-2">
             <Button href="/pricing" size="sm">
               See plans
             </Button>
+            <Button variant="outline" size="sm" disabled={trialPending} onClick={() => void requestTrial('crackloop')}>
+              {trialPending ? 'Starting trial…' : 'Try free trial'}
+            </Button>
           </div>
+          {trialMsg ? <p role="status" className="mt-2 text-xs text-muted">{trialMsg}</p> : null}
         </Card>
       ) : (
         summary.apps.map(({ appId, subscription }) => (
@@ -133,7 +162,7 @@ export function AccountView() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-display text-lg font-semibold capitalize text-fg">{appId}</h3>
               {subscription ? (
-                <Badge tone={subscription.status === 'active' || subscription.status === 'lifetime' ? 'success' : 'warn'}>
+                <Badge tone={subscription.status === 'trial' ? 'default' : subscription.status === 'active' || subscription.status === 'lifetime' ? 'success' : 'warn'}>
                   {subscription.status}
                 </Badge>
               ) : null}
@@ -141,10 +170,16 @@ export function AccountView() {
             {subscription ? (
               <>
                 <p className="mt-2 text-sm text-muted">
-                  {TIER_LABEL[subscription.tier]} ·{' '}
-                  {subscription.expiryTimeMillis === null
-                    ? 'Lifetime'
-                    : `${subscription.autoRenewing ? 'Renews' : 'Ends'} ${new Date(subscription.expiryTimeMillis).toLocaleDateString()}`}
+                  {subscription.status === 'trial' ? (
+                    `Trial ends ${new Date(subscription.expiryTimeMillis!).toLocaleDateString()}`
+                  ) : (
+                    <>
+                      {TIER_LABEL[subscription.tier]} ·{' '}
+                      {subscription.expiryTimeMillis === null
+                        ? 'Lifetime'
+                        : `${subscription.autoRenewing ? 'Renews' : 'Ends'} ${new Date(subscription.expiryTimeMillis).toLocaleDateString()}`}
+                    </>
+                  )}
                 </p>
                 {subscription.autoRenewing && subscription.razorpaySubscriptionId ? (
                   <div className="mt-4">
@@ -155,7 +190,15 @@ export function AccountView() {
                 ) : null}
               </>
             ) : (
-              <p className="mt-2 text-sm text-muted">No active subscription.</p>
+              <>
+                <p className="mt-2 text-sm text-muted">No active subscription.</p>
+                <div className="mt-4">
+                  <Button variant="outline" size="sm" disabled={trialPending} onClick={() => void requestTrial(appId)}>
+                    {trialPending ? 'Starting trial…' : 'Try free trial'}
+                  </Button>
+                </div>
+                {trialMsg ? <p role="status" className="mt-2 text-xs text-muted">{trialMsg}</p> : null}
+              </>
             )}
           </Card>
         ))
