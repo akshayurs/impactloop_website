@@ -7,6 +7,7 @@ export const metadata: Metadata = { title: 'Admin', robots: { index: false } }
 const SECTIONS = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/users', label: 'Users' },
+  { href: '/admin/influencers', label: 'Influencers' },
   { href: '/admin/plans', label: 'Plans' },
   { href: '/admin/settings', label: 'Settings' },
   { href: '/admin/webhooks', label: 'Webhooks' },

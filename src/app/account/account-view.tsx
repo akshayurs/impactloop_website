@@ -36,6 +36,11 @@ export function AccountView() {
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [trialMsg, setTrialMsg] = useState<string | null>(null)
   const [trialPending, setTrialPending] = useState(false)
+  const [influencerStatus, setInfluencerStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null)
+  const [influencerLoading, setInfluencerLoading] = useState(false)
+  const [socialLinks, setSocialLinks] = useState([''])
+  const [applyPending, setApplyPending] = useState(false)
+  const [applyError, setApplyError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -57,6 +62,25 @@ export function AccountView() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!user) return
+    void (async () => {
+      setInfluencerLoading(true)
+      try {
+        const token = await user.getIdToken()
+        const res = await fetch('/api/influencer/me', { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.influencer) setInfluencerStatus(data.influencer.status)
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setInfluencerLoading(false)
+      }
+    })()
+  }, [user])
 
   async function requestTrial(appId: string) {
     if (!user) return
@@ -102,6 +126,32 @@ export function AccountView() {
       setCancelError("Couldn't cancel — try again.")
     } finally {
       setCancelPending(false)
+    }
+  }
+
+  async function applyInfluencer() {
+    if (!user) return
+    setApplyPending(true)
+    setApplyError(null)
+    try {
+      const token = await user.getIdToken()
+      const validLinks = socialLinks.filter((l) => l.trim())
+      const res = await fetch('/api/influencer/apply', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ socialLinks: validLinks }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setApplyError(data.error ?? 'Application failed.')
+        return
+      }
+      setInfluencerStatus('pending')
+      setSocialLinks([''])
+    } catch {
+      setApplyError('Application failed.')
+    } finally {
+      setApplyPending(false)
     }
   }
 
@@ -202,6 +252,95 @@ export function AccountView() {
             )}
           </Card>
         ))
+      )}
+
+      <h2 className="mt-10 font-display text-xl font-semibold text-fg">Influencer program</h2>
+      {influencerLoading ? (
+        <Card className="mt-4">
+          <p className="text-sm text-muted">Loading…</p>
+        </Card>
+      ) : influencerStatus ? (
+        <Card className="mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted">
+              {influencerStatus === 'pending' && 'Application under review'}
+              {influencerStatus === 'approved' && 'Approved'}
+              {influencerStatus === 'rejected' && 'Application rejected'}
+            </p>
+            <Badge tone={influencerStatus === 'approved' ? 'success' : influencerStatus === 'pending' ? 'default' : 'warn'}>
+              {influencerStatus}
+            </Badge>
+          </div>
+          <div className="mt-4">
+            <Button href="/influencer" variant="outline" size="sm">
+              View portal
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <Card className="mt-4">
+          <p className="text-sm text-muted mb-4">Earn commissions by referring users with your promo code.</p>
+          {applyError ? (
+            <p role="alert" className="mb-4 text-sm text-red-500">
+              {applyError}
+            </p>
+          ) : null}
+          <div className="space-y-3">
+            {socialLinks.map((link, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://instagram.com/your-handle"
+                  value={link}
+                  onChange={(e) => {
+                    const newLinks = [...socialLinks]
+                    newLinks[i] = e.target.value
+                    setSocialLinks(newLinks)
+                  }}
+                  className="flex-1 rounded-md border border-line bg-bg px-3 py-2 text-sm text-fg placeholder-muted"
+                />
+                {socialLinks.length > 1 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSocialLinks(socialLinks.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {socialLinks.length < 5 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => setSocialLinks([...socialLinks, ''])}
+            >
+              + Add link
+            </Button>
+          ) : null}
+          <div className="mt-4 flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => void applyInfluencer()}
+              disabled={applyPending || !socialLinks.some((l) => l.trim())}
+            >
+              {applyPending ? 'Applying…' : 'Apply'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSocialLinks([''])
+                setApplyError(null)
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </Card>
       )}
 
       {summary && summary.payments.length > 0 ? (

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { PromoInput } from '@/components/promo-input'
 import type { Plan } from '@/config/plans'
 import { useAuth } from '@/lib/auth-context'
 
@@ -25,6 +26,7 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
   const { user, signIn } = useAuth()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [promoCode, setPromoCode] = useState<string | null>(null)
 
   async function startCheckout() {
     if (!user) {
@@ -38,7 +40,7 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: plan.id }),
+        body: JSON.stringify({ planId: plan.id, ...(promoCode ? { promoCode } : {}) }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 409) throw new Error('You already have an active plan for this app.')
@@ -91,6 +93,7 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
   const label = !user ? 'Sign in to subscribe' : plan.lifetime ? 'Buy once' : 'Subscribe'
   return (
     <div className="flex flex-col gap-2">
+      <PromoInput onApply={setPromoCode} durationMonths={plan.durationMonths} />
       <Button onClick={() => void startCheckout()} disabled={pending} className="w-full">
         {pending ? 'Starting…' : label}
       </Button>
