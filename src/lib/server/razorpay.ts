@@ -46,6 +46,19 @@ export async function createSubscription(input: {
   return { id: json.id, status: json.status }
 }
 
+export async function createPlan(input: {
+  name: string
+  amountPaise: number
+  intervalMonths: number
+}): Promise<{ id: string }> {
+  const json = await rzpFetch('/plans', {
+    period: 'monthly',
+    interval: input.intervalMonths,
+    item: { name: input.name, amount: input.amountPaise, currency: 'INR' },
+  })
+  return { id: json.id }
+}
+
 export async function createOrder(input: {
   amountPaise: number
   receipt: string

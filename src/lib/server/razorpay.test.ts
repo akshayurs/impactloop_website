@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createOrder,
+  createPlan,
   createSubscription,
   cancelSubscriptionAtCycleEnd,
   RazorpayError,
@@ -68,6 +69,19 @@ describe('REST client', () => {
     expect(res).toEqual({ id: 'order_1', amount: 199900 })
     const [, init] = (fetch as any).mock.calls[0]
     expect(JSON.parse(init.body)).toMatchObject({ amount: 199900, currency: 'INR', receipt: 'r1' })
+  })
+
+  it('createPlan posts monthly period plan payload', async () => {
+    ;(fetch as any).mockResolvedValue(new Response(JSON.stringify({ id: 'plan_new' }), { status: 200 }))
+    const res = await createPlan({ name: 'crackloop pro 3m', amountPaise: 19900, intervalMonths: 3 })
+    expect(res).toEqual({ id: 'plan_new' })
+    const [url, init] = (fetch as any).mock.calls[0]
+    expect(url).toBe('https://api.razorpay.com/v1/plans')
+    expect(JSON.parse(init.body)).toEqual({
+      period: 'monthly',
+      interval: 3,
+      item: { name: 'crackloop pro 3m', amount: 19900, currency: 'INR' },
+    })
   })
 
   it('cancel hits cancel endpoint with cycle-end flag', async () => {
