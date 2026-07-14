@@ -26,6 +26,7 @@ account portal — fast, accessible, and light on JavaScript.
 - Pricing display, Razorpay checkout modal, and subscription + account management.
 - Admin dashboard (`/admin`): metrics, user management, plan CRUD, settings, webhook log — single admin via Firebase custom claim (`scripts/set-admin.mjs`).
 - Free trials: admin-configurable, once per user per app.
+- Influencer program: applications, admin-set commission rates, promo codes (lifetime discounts / free days on subscriptions), referral attribution, manual payouts.
 - Light and dark themes; all motion respects `prefers-reduced-motion`.
 
 ## Run locally

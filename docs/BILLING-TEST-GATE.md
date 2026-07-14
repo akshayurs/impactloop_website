@@ -32,3 +32,17 @@ Walk each row, record PASS/FAIL:
 | A5 | Revoke | /admin/users → revoke app access | user entitlements zeroed (status revoked) |
 | A6 | Plan CRUD | /admin/plans create 3m plan ₹199 | appears on /pricing + /api/v1/plans; deactivate → disappears from both |
 | A7 | Webhook log | /admin/webhooks | events from earlier test payments listed |
+
+## Influencer gate
+
+| # | Flow | Steps | Expect |
+|---|------|-------|--------|
+| I1 | Apply | user B /account → apply with instagram link | /influencer shows "under review" |
+| I2 | Approve + rates | admin /admin/influencers → approve B, discount 10%, signup ₹5, pro-1m ₹15 | B's /influencer unlocks code manager |
+| I3 | Code claim | B picks suggestion or custom | code registered; share link shown; changing code kills old one (validate API says not-found) |
+| I4 | Referral signup | incognito: open share link → sign in as NEW user C | C's users doc referredBy=code; B sees signup referral ₹5 |
+| I5 | Promo checkout (lifetime) | C buys lifetime with code | pays 10% less; B gets lifetime commission after payment |
+| I6 | Promo checkout (recurring) | C subscribes 1m with code | Razorpay shows first charge ~3 days out (free days); after charge webhook, B sees subscription commission ₹15 |
+| I7 | Self-use blocked | B tries own code at checkout | 400 "cannot use your own code" |
+| I8 | Payout | admin marks ₹20 paid to B | B's balance drops by ₹20; cannot mark more than balance |
+| I9 | Expiry | admin sets promoDefaultExpiryMonths=1 in settings; B re-creates code | new expiry ~30 days out |
