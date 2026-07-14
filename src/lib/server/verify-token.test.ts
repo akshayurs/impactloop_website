@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const verifyIdToken = vi.fn()
 vi.mock('./firebase-admin', () => ({
@@ -8,7 +8,6 @@ vi.mock('./firebase-admin', () => ({
 import { requireUser, UnauthorizedError } from './verify-token'
 
 describe('requireUser', () => {
-  beforeEach(() => verifyIdToken.mockReset())
 
   it('rejects missing Authorization header', async () => {
     const req = new Request('http://x', { method: 'POST' })
@@ -21,9 +20,13 @@ describe('requireUser', () => {
   })
 
   it('rejects when token verification fails', async () => {
-    verifyIdToken.mockRejectedValue(new Error('bad token'))
+    verifyIdToken.mockImplementation(() => Promise.reject(new Error('bad token')))
     const req = new Request('http://x', { headers: { Authorization: 'Bearer tok' } })
-    await expect(requireUser(req)).rejects.toBeInstanceOf(UnauthorizedError)
+    const err = await requireUser(req).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(err).toBeInstanceOf(UnauthorizedError)
   })
 
   it('returns uid and email on valid token', async () => {
