@@ -95,6 +95,21 @@ describe('POST /api/razorpay/webhook', () => {
     }))
   })
 
+  it('halted: preserves lifetime grant without downgrade', async () => {
+    docGet.mockImplementation(async (path: string) => {
+      if (path === 'webhookEvents/evt_6') return { exists: false }
+      if (path === 'razorpaySubscriptions/sub_1') return { exists: true, data: () => ({ uid: 'u1', appId: 'crackloop', planId: PLAN.id }) }
+      if (path === 'users/u1/apps/crackloop') return { exists: true, data: () => ({ subscription: { status: 'lifetime' } }) }
+      return { exists: false, data: () => undefined }
+    })
+    const halted = { ...CHARGED, event: 'subscription.halted', payload: { subscription: { entity: { id: 'sub_1', status: 'halted', current_end: 1750000000 } } } }
+    const res = await POST(signed(halted, 'evt_6'))
+    expect(res.status).toBe(200)
+    expect(writeEntitlement).not.toHaveBeenCalled()
+    const setPaths = docSet.mock.calls.map((c) => c[0])
+    expect(setPaths).toContain('webhookEvents/evt_6')
+  })
+
   it('unknown subscription context returns 200 ok:false without throwing', async () => {
     docGet.mockImplementation(async (path: string) =>
       path.startsWith('webhookEvents/') ? { exists: false } : { exists: false, data: () => undefined },

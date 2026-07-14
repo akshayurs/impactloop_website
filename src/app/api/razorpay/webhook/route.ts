@@ -45,17 +45,24 @@ export async function POST(req: Request): Promise<Response> {
         console.error('webhook: unknown plan', ctx.planId)
         return Response.json({ ok: false, reason: 'unknown plan' })
       }
-      await writeEntitlement(
-        ctx.uid,
-        ctx.appId,
-        buildSubscriptionEntitlement({
-          plan,
-          status: effect.status,
-          currentEndMillis: effect.currentEndMillis,
-          razorpaySubscriptionId: effect.subscriptionId,
-          nowMillis: now,
-        }),
-      )
+
+      const existingEntitlementSnap = await adminDb().doc(`users/${ctx.uid}/apps/${ctx.appId}`).get()
+      const existingLifetimeStatus = existingEntitlementSnap.data()?.subscription?.status
+      if (existingLifetimeStatus === 'lifetime') {
+        console.warn('webhook: skipping subscription update over lifetime grant', { subscriptionId: effect.subscriptionId, uid: ctx.uid, appId: ctx.appId })
+      } else {
+        await writeEntitlement(
+          ctx.uid,
+          ctx.appId,
+          buildSubscriptionEntitlement({
+            plan,
+            status: effect.status,
+            currentEndMillis: effect.currentEndMillis,
+            razorpaySubscriptionId: effect.subscriptionId,
+            nowMillis: now,
+          }),
+        )
+      }
       if (effect.paymentId && effect.amountPaise !== null) {
         await adminDb().doc(`users/${ctx.uid}/payments/${effect.paymentId}`).set(
           { amountPaise: effect.amountPaise, planId: ctx.planId, appId: ctx.appId, type: 'subscription', createdAt: now },
