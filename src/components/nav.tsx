@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useState } from 'react'
+import { AuthButton } from './auth-button'
 import { Logo } from './logo'
 import { ThemeToggle } from './theme-toggle'
 
@@ -23,9 +24,7 @@ export function Nav() {
               {l.label}
             </Link>
           ))}
-          <Link href="/account" className="text-sm text-muted hover:text-fg">
-            Account
-          </Link>
+          <AuthButton />
           <ThemeToggle />
         </div>
         <div className="flex items-center gap-2 md:hidden">
@@ -43,7 +42,7 @@ export function Nav() {
       </nav>
       {open ? (
         <div className="border-t border-line px-4 py-3 md:hidden">
-          {[...LINKS, { href: '/account', label: 'Account' }].map((l) => (
+          {LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
@@ -53,6 +52,9 @@ export function Nav() {
               {l.label}
             </Link>
           ))}
+          <div className="px-2 py-3" onClick={() => setOpen(false)}>
+            <AuthButton />
+          </div>
         </div>
       ) : null}
     </header>
