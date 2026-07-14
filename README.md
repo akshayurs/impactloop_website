@@ -13,7 +13,7 @@ account portal — fast, accessible, and light on JavaScript.
 | Framework | [Next.js 15](https://nextjs.org) (App Router) + React + TypeScript |
 | Hosting | [Vercel](https://vercel.com) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
 | Auth | [Firebase](https://firebase.google.com) — Google sign-in |
-| Billing | Planned — Razorpay (see [docs/superpowers/specs](docs/superpowers/specs)) |
+| Billing | Razorpay subscriptions + lifetime orders (webhook-driven entitlements) |
 | Styling | Tailwind CSS 4 |
 | Animation | CSS-only transitions and keyframes — no 3D, no scroll-animation libraries |
 | Fonts | `next/font` (Space Grotesk + Inter) |
@@ -23,7 +23,7 @@ account portal — fast, accessible, and light on JavaScript.
 - App Router server components throughout: marketing pages, per-app pages, pricing, legal pages,
   sitemap, and robots.
 - Firebase Google auth gating `/account`.
-- Static pricing display; checkout and subscription management planned.
+- Pricing display, Razorpay checkout modal, and subscription + account management.
 - Light and dark themes; all motion respects `prefers-reduced-motion`.
 
 ## Run locally
