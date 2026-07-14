@@ -1,7 +1,7 @@
 # Impact Loop — website
 
 Marketing site and unified portal for **Impact Loop**, an indie app studio, featuring its
-flagship product **CrackLoop**. Home, per-app pages, pricing/checkout, and an auth-gated
+flagship product **CrackLoop**. Home, per-app pages, pricing, and an auth-gated
 account portal — fast, accessible, and light on JavaScript.
 
 **Live:** deployed on [Vercel](https://vercel.com).
