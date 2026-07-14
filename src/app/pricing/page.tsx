@@ -4,6 +4,7 @@ import { APPS } from '@/config/apps'
 import { getPlans } from '@/config/plans'
 
 export const metadata: Metadata = { title: 'Pricing' }
+export const revalidate = 300
 
 export default async function PricingPage() {
   const sections = await Promise.all(

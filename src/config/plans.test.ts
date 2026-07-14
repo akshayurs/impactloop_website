@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getPlans } from './plans'
+import { getPlansFromDb as getPlans } from '@/lib/server/plans-store'
 
 describe('getPlans', () => {
   it('returns active crackloop plans sorted by sort key', async () => {
