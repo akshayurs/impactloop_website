@@ -1,17 +1,76 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { ConfirmModal } from '@/components/ui/modal'
+import { formatINR } from '@/lib/format'
 import { useAuth } from '@/lib/auth-context'
+
+type Summary = {
+  apps: Array<{
+    appId: string
+    subscription: {
+      status: string
+      planId: string
+      tier: 'pro' | 'ai'
+      expiryTimeMillis: number | null
+      autoRenewing: boolean
+      razorpaySubscriptionId: string | null
+    } | null
+    entitlements: { adFree: boolean; unlimitedAi: boolean } | null
+  }>
+  payments: Array<{ id: string; amountPaise: number; planId: string; appId: string; type: string; createdAt: number }>
+}
+
+const TIER_LABEL = { pro: 'Pro', ai: 'AI' } as const
 
 export function AccountView() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
+  const [summary, setSummary] = useState<Summary | null>(null)
+  const [fetchError, setFetchError] = useState(false)
+  const [cancelApp, setCancelApp] = useState<string | null>(null)
+  const [cancelPending, setCancelPending] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!user) return
+    setFetchError(false)
+    try {
+      const token = await user.getIdToken()
+      const res = await fetch('/api/me/summary', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('summary failed')
+      setSummary(await res.json())
+    } catch {
+      setFetchError(true)
+    }
+  }, [user])
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
   }, [loading, user, router])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function confirmCancel() {
+    if (!user || !cancelApp) return
+    setCancelPending(true)
+    try {
+      const token = await user.getIdToken()
+      await fetch('/api/subscription/cancel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appId: cancelApp }),
+      })
+      await load()
+    } finally {
+      setCancelPending(false)
+      setCancelApp(null)
+    }
+  }
 
   if (loading || !user) {
     return <p className="px-4 py-16 text-center text-muted">Loading…</p>
@@ -20,6 +79,7 @@ export function AccountView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <h1 className="font-display text-3xl font-bold text-fg">Account</h1>
+
       <Card className="mt-8">
         <p className="text-sm text-muted">Signed in as</p>
         <p className="mt-1 font-medium text-fg">{user.displayName ?? user.email}</p>
@@ -30,12 +90,91 @@ export function AccountView() {
           </Button>
         </div>
       </Card>
-      <Card className="mt-6">
-        <h2 className="font-display text-lg font-semibold text-fg">Subscriptions</h2>
-        <p className="mt-2 text-sm text-muted">
-          Your subscriptions will appear here once checkout goes live.
-        </p>
-      </Card>
+
+      <h2 className="mt-10 font-display text-xl font-semibold text-fg">Subscriptions</h2>
+      {fetchError ? (
+        <Card className="mt-4">
+          <p role="alert" className="text-sm text-red-500">
+            Couldn’t load your subscriptions.
+          </p>
+          <div className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Retry
+            </Button>
+          </div>
+        </Card>
+      ) : !summary ? (
+        <p className="mt-4 text-sm text-muted">Loading…</p>
+      ) : summary.apps.length === 0 ? (
+        <Card className="mt-4">
+          <p className="text-sm text-muted">No subscriptions yet.</p>
+          <div className="mt-4">
+            <Button href="/pricing" size="sm">
+              See plans
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        summary.apps.map(({ appId, subscription }) => (
+          <Card key={appId} className="mt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-semibold capitalize text-fg">{appId}</h3>
+              {subscription ? (
+                <Badge tone={subscription.status === 'active' || subscription.status === 'lifetime' ? 'success' : 'warn'}>
+                  {subscription.status}
+                </Badge>
+              ) : null}
+            </div>
+            {subscription ? (
+              <>
+                <p className="mt-2 text-sm text-muted">
+                  {TIER_LABEL[subscription.tier]} ·{' '}
+                  {subscription.expiryTimeMillis === null
+                    ? 'Lifetime'
+                    : `${subscription.autoRenewing ? 'Renews' : 'Ends'} ${new Date(subscription.expiryTimeMillis).toLocaleDateString()}`}
+                </p>
+                {subscription.autoRenewing && subscription.razorpaySubscriptionId ? (
+                  <div className="mt-4">
+                    <Button variant="outline" size="sm" onClick={() => setCancelApp(appId)}>
+                      Cancel subscription
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted">No active subscription.</p>
+            )}
+          </Card>
+        ))
+      )}
+
+      {summary && summary.payments.length > 0 ? (
+        <>
+          <h2 className="mt-10 font-display text-xl font-semibold text-fg">Payment history</h2>
+          <Card className="mt-4">
+            <ul className="divide-y divide-line">
+              {summary.payments.map((p) => (
+                <li key={p.id} className="flex items-center justify-between py-3 text-sm">
+                  <span className="text-muted">
+                    {new Date(p.createdAt).toLocaleDateString()} · {p.appId} · {p.type}
+                  </span>
+                  <span className="font-medium text-fg">{formatINR(p.amountPaise)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
+      ) : null}
+
+      <ConfirmModal
+        open={cancelApp !== null}
+        title="Cancel subscription?"
+        body="Your plan stays active until the end of the current billing period, then won’t renew."
+        confirmLabel={cancelPending ? 'Cancelling…' : 'Yes, cancel'}
+        onConfirm={() => void confirmCancel()}
+        onClose={() => setCancelApp(null)}
+        destructive
+      />
     </div>
   )
 }

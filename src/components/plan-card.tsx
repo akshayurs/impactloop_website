@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { CheckoutButton } from './checkout-button'
 import type { Plan } from '@/config/plans'
 import { formatINR } from '@/lib/format'
 
@@ -28,9 +28,7 @@ export function PlanCard({ plan }: { plan: Plan }) {
         <p className="mt-1 text-xs text-muted">Cheaper than Google Play — no store fees.</p>
       ) : null}
       <div className="mt-6">
-        <Button href="/account" className="w-full">
-          {plan.lifetime ? 'Buy once' : 'Subscribe'}
-        </Button>
+        <CheckoutButton plan={plan} />
       </div>
     </Card>
   )

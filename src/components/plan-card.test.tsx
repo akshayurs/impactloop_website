@@ -1,5 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({ user: null, loading: false, signIn: vi.fn(), signOut: vi.fn() }),
+}))
+
 import type { Plan } from '@/config/plans'
 import { PlanCard, durationLabel } from './plan-card'
 
