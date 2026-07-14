@@ -20,3 +20,15 @@ Walk each row, record PASS/FAIL:
 | 7 | Lifetime webhook backup | check Firestore webhookEvents | order.paid marker exists; no duplicate payment rows |
 | 8 | Plans API | GET /api/v1/plans?app=crackloop | public fields only, no razorpayPlanId |
 | 9 | Webhook security | POST garbage to /api/razorpay/webhook | 400; nothing written |
+
+## Admin gate (after `node --env-file=.env.local scripts/set-admin.mjs <your-email>` + re-sign-in)
+
+| # | Flow | Steps | Expect |
+|---|------|-------|--------|
+| A1 | Access control | open /admin signed out, as normal user, as admin | sign-in prompt / "Not authorized" / dashboard |
+| A2 | Metrics | /admin after test payments | revenue matches test payments sum |
+| A3 | Trial toggle | /admin/settings enable trials, save | /account (normal user) shows "Try free trial"; grant works; second request → not eligible |
+| A4 | Admin trial grant | /admin/users → user → grant trial 30d | user's /account shows trial, ends in 30 days |
+| A5 | Revoke | /admin/users → revoke app access | user entitlements zeroed (status revoked) |
+| A6 | Plan CRUD | /admin/plans create 3m plan ₹199 | appears on /pricing + /api/v1/plans; deactivate → disappears from both |
+| A7 | Webhook log | /admin/webhooks | events from earlier test payments listed |

@@ -24,6 +24,8 @@ account portal — fast, accessible, and light on JavaScript.
   sitemap, and robots.
 - Firebase Google auth gating `/account`.
 - Pricing display, Razorpay checkout modal, and subscription + account management.
+- Admin dashboard (`/admin`): metrics, user management, plan CRUD, settings, webhook log — single admin via Firebase custom claim (`scripts/set-admin.mjs`).
+- Free trials: admin-configurable, once per user per app.
 - Light and dark themes; all motion respects `prefers-reduced-motion`.
 
 ## Run locally
