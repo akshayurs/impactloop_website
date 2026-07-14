@@ -33,6 +33,7 @@ export function AccountView() {
   const [fetchError, setFetchError] = useState(false)
   const [cancelApp, setCancelApp] = useState<string | null>(null)
   const [cancelPending, setCancelPending] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -58,17 +59,24 @@ export function AccountView() {
   async function confirmCancel() {
     if (!user || !cancelApp) return
     setCancelPending(true)
+    setCancelError(null)
     try {
       const token = await user.getIdToken()
-      await fetch('/api/subscription/cancel', {
+      const res = await fetch('/api/subscription/cancel', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ appId: cancelApp }),
       })
+      if (!res.ok) {
+        setCancelError("Couldn't cancel — try again.")
+        return
+      }
       await load()
+      setCancelApp(null)
+    } catch {
+      setCancelError("Couldn't cancel — try again.")
     } finally {
       setCancelPending(false)
-      setCancelApp(null)
     }
   }
 
@@ -92,6 +100,11 @@ export function AccountView() {
       </Card>
 
       <h2 className="mt-10 font-display text-xl font-semibold text-fg">Subscriptions</h2>
+      {cancelError ? (
+        <p role="alert" className="mt-2 text-sm text-red-500">
+          {cancelError}
+        </p>
+      ) : null}
       {fetchError ? (
         <Card className="mt-4">
           <p role="alert" className="text-sm text-red-500">

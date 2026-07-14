@@ -63,17 +63,21 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
           amount: data.amountPaise,
           currency: 'INR',
           handler: async (resp: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            const verifyRes = await fetch('/api/checkout/verify', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${await user.getIdToken()}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orderId: resp.razorpay_order_id,
-                paymentId: resp.razorpay_payment_id,
-                signature: resp.razorpay_signature,
-              }),
-            })
-            if (verifyRes.ok) window.location.assign('/account')
-            else setError('Payment received but verification failed — contact support.')
+            try {
+              const verifyRes = await fetch('/api/checkout/verify', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${await user.getIdToken()}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: resp.razorpay_order_id,
+                  paymentId: resp.razorpay_payment_id,
+                  signature: resp.razorpay_signature,
+                }),
+              })
+              if (verifyRes.ok) window.location.assign('/account')
+              else setError('Payment received but verification failed — contact support.')
+            } catch {
+              setError('Payment received but verification failed — contact support.')
+            }
           },
         }).open()
       }
