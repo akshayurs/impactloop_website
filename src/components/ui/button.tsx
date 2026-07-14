@@ -25,7 +25,7 @@ type Props = {
 
 export function Button({ variant = 'primary', size = 'md', href, className = '', ...rest }: Props) {
   const cls = `${base} ${variants[variant]} ${sizes[size]} ${className}`
-  if (href) {
+  if (href && !rest.disabled) {
     return (
       <Link href={href} className={cls}>
         {rest.children}

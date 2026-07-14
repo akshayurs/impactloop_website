@@ -1,11 +1,12 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Badge } from './badge'
 import { Button } from './button'
 import { Card } from './card'
 import { Input } from './input'
 
 describe('Button', () => {
+  afterEach(() => cleanup())
   it('renders a button by default', () => {
     render(<Button>Save</Button>)
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
@@ -13,6 +14,11 @@ describe('Button', () => {
   it('renders an anchor when href given', () => {
     render(<Button href="/pricing">Pricing</Button>)
     expect(screen.getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', '/pricing')
+  })
+  it('renders a disabled button instead of a link when href and disabled', () => {
+    render(<Button href="/pricing" disabled>Pricing</Button>)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pricing' })).toBeDisabled()
   })
 })
 
