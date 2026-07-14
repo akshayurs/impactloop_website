@@ -100,11 +100,11 @@ describe('getUserDetail', () => {
 })
 
 describe('revokeEntitlement', () => {
-  it('zeroes grants and marks revoked with merge', async () => {
+  it('zeroes grants, marks revoked, clears expiry with merge', async () => {
     await revokeEntitlement('u1', 'crackloop')
     expect(docSet).toHaveBeenCalledWith(
       'users/u1/apps/crackloop',
-      { subscription: { status: 'revoked', autoRenewing: false }, entitlements: { adFree: false, unlimitedAi: false } },
+      { subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null }, entitlements: { adFree: false, unlimitedAi: false } },
       { merge: true },
     )
   })
@@ -137,6 +137,34 @@ describe('createPlanWithRazorpay', () => {
     await expect(createPlanWithRazorpay({ ...base, id: 'Bad Slug!' })).rejects.toThrow(/id/)
     await expect(createPlanWithRazorpay({ ...base, pricePaise: -5 })).rejects.toThrow(/price/)
     await expect(createPlanWithRazorpay({ ...base, lifetime: true })).rejects.toThrow(/lifetime/)
+  })
+
+  it('rejects invalid tier', async () => {
+    await expect(createPlanWithRazorpay({ ...base, tier: 'gold' as never })).rejects.toThrow(/tier/)
+  })
+
+  it('rejects invalid durationMonths', async () => {
+    await expect(createPlanWithRazorpay({ ...base, durationMonths: 5 as never })).rejects.toThrow(/durationMonths/)
+  })
+
+  it('does not write extra body keys to firestore', async () => {
+    await createPlanWithRazorpay({ ...base, evil: 'x' } as never)
+    const call = docSet.mock.calls[0]
+    const docPayload = call[1]
+    expect(docPayload).not.toHaveProperty('evil')
+    expect(docPayload).toEqual(
+      expect.objectContaining({
+        id: base.id,
+        appId: base.appId,
+        tier: base.tier,
+        durationMonths: base.durationMonths,
+        lifetime: base.lifetime,
+        pricePaise: base.pricePaise,
+        playStorePricePaise: base.playStorePricePaise,
+        sort: base.sort,
+        active: true,
+      }),
+    )
   })
 })
 

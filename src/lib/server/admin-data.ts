@@ -61,7 +61,7 @@ export async function revokeEntitlement(uid: string, appId: string): Promise<voi
     .doc(`users/${uid}/apps/${appId}`)
     .set(
       {
-        subscription: { status: 'revoked', autoRenewing: false },
+        subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null },
         entitlements: { adFree: false, unlimitedAi: false },
       },
       { merge: true },
@@ -81,6 +81,8 @@ export async function createPlanWithRazorpay(input: {
   sort: number
 }): Promise<StoredPlan> {
   if (!PLAN_ID_RE.test(input.id)) throw new Error('id must be a slug: [a-z0-9-]{3,40}')
+  if (!['pro', 'ai'].includes(input.tier)) throw new Error('tier must be "pro" or "ai"')
+  if (![1, 3, 6, 12, null].includes(input.durationMonths)) throw new Error('durationMonths must be 1, 3, 6, 12, or null')
   if (!Number.isInteger(input.pricePaise) || input.pricePaise <= 0) throw new Error('price must be positive integer paise')
   if (input.lifetime !== (input.durationMonths === null)) throw new Error('lifetime plans must have null duration (and vice versa)')
 
@@ -97,7 +99,18 @@ export async function createPlanWithRazorpay(input: {
         })
       ).id
 
-  const plan: StoredPlan = { ...input, razorpayPlanId, active: true }
+  const plan: StoredPlan = {
+    id: input.id,
+    appId: input.appId,
+    tier: input.tier,
+    durationMonths: input.durationMonths,
+    lifetime: input.lifetime,
+    pricePaise: input.pricePaise,
+    playStorePricePaise: input.playStorePricePaise,
+    sort: input.sort,
+    razorpayPlanId,
+    active: true,
+  }
   await ref.set(plan)
   return plan
 }
