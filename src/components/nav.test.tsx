@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { ThemeProvider } from './theme-provider'
 import { Nav } from './nav'
+
+afterEach(cleanup)
 
 describe('Nav', () => {
   it('has links to apps and pricing', () => {
@@ -18,7 +20,7 @@ describe('Nav', () => {
         <Nav />
       </ThemeProvider>,
     )
-    const toggle = screen.getAllByRole('button', { name: /menu/i })[0]
+    const toggle = screen.getByRole('button', { name: /menu/i })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
