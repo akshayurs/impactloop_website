@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-type Variant = 'primary' | 'outline' | 'ghost'
+type Variant = 'primary' | 'outline' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const base =
@@ -9,6 +9,7 @@ const variants: Record<Variant, string> = {
   primary: 'bg-accent text-accent-fg hover:opacity-90',
   outline: 'border border-line text-fg hover:bg-card',
   ghost: 'text-fg hover:bg-card',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
 }
 const sizes: Record<Size, string> = {
   sm: 'h-8 px-3 text-sm',

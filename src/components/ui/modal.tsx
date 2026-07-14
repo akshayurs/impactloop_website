@@ -32,8 +32,8 @@ export function ConfirmModal({ open, title, body, confirmLabel, onConfirm, onClo
             Keep
           </Button>
           <Button
+            variant={destructive ? 'danger' : 'primary'}
             onClick={onConfirm}
-            className={destructive ? 'bg-red-600 text-white hover:opacity-90' : ''}
           >
             {confirmLabel}
           </Button>

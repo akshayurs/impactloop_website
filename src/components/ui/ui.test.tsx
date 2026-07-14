@@ -20,6 +20,10 @@ describe('Button', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Pricing' })).toBeDisabled()
   })
+  it('renders danger variant', () => {
+    render(<Button variant="danger">Delete</Button>)
+    expect(screen.getByRole('button', { name: 'Delete' }).className).toContain('bg-red-600')
+  })
 })
 
 describe('Input', () => {
