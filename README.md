@@ -13,7 +13,7 @@ account portal — fast, accessible, and light on JavaScript.
 | Framework | [Next.js 15](https://nextjs.org) (App Router) + React + TypeScript |
 | Hosting | [Vercel](https://vercel.com) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
 | Auth | [Firebase](https://firebase.google.com) — Google sign-in |
-| Billing | Razorpay checkout + webhooks |
+| Billing | Planned — Razorpay (see [docs/superpowers/specs](docs/superpowers/specs)) |
 | Styling | Tailwind CSS 4 |
 | Animation | CSS-only transitions and keyframes — no 3D, no scroll-animation libraries |
 | Fonts | `next/font` (Space Grotesk + Inter) |
@@ -23,13 +23,13 @@ account portal — fast, accessible, and light on JavaScript.
 - App Router server components throughout: marketing pages, per-app pages, pricing, legal pages,
   sitemap, and robots.
 - Firebase Google auth gating `/account`.
-- Razorpay-backed pricing, checkout, and subscription management.
+- Static pricing display; checkout and subscription management planned.
 - Light and dark themes; all motion respects `prefers-reduced-motion`.
 
 ## Run locally
 
 Requires Node 20+ and [pnpm](https://pnpm.io). Copy `.env.local.example` to
-`.env.local` and fill in the required Firebase and Razorpay values.
+`.env.local` and fill in the `NEXT_PUBLIC_FIREBASE_*` values (see `.env.local.example`).
 
 ```bash
 pnpm install
