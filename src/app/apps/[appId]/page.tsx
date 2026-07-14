@@ -30,7 +30,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
       </div>
       <p className="mt-3 max-w-2xl text-lg text-muted">{app.description}</p>
       <div className="mt-6 flex flex-wrap gap-3">
-        <Button href={app.playStoreUrl} size="lg">Get it on Google Play</Button>
+        <Button href={app.playStoreUrl} size="lg" target="_blank">Get it on Google Play</Button>
         <Button href="/pricing" size="lg" variant="outline">Web pricing</Button>
       </div>
 

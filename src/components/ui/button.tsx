@@ -22,13 +22,16 @@ type Props = {
   size?: Size
   href?: string
   className?: string
+  target?: string
+  rel?: string
 } & React.ButtonHTMLAttributes<HTMLButtonElement>
 
-export function Button({ variant = 'primary', size = 'md', href, className = '', ...rest }: Props) {
+export function Button({ variant = 'primary', size = 'md', href, className = '', target, rel, ...rest }: Props) {
   const cls = `${base} ${variants[variant]} ${sizes[size]} ${className}`
   if (href && !rest.disabled) {
+    const linkRel = target === '_blank' && !rel ? 'noopener noreferrer' : rel
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} className={cls} target={target} rel={linkRel}>
         {rest.children}
       </Link>
     )
