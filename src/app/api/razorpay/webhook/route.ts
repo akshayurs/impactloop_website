@@ -4,11 +4,43 @@ import {
   buildSubscriptionEntitlement,
   writeEntitlement,
 } from '@/lib/server/entitlements'
+import { getInfluencer, recordReferral } from '@/lib/server/influencer'
 import { getPlanById } from '@/lib/server/plans-store'
+import { commissionForPlan } from '@/lib/server/promo'
 import { verifyWebhookSignature } from '@/lib/server/razorpay'
 import { idempotencyKeyFor, mapWebhookEvent } from '@/lib/server/webhook-events'
 
 export const runtime = 'nodejs'
+
+async function maybeRecordCommission(params: {
+  promoCode?: string | null
+  promoOwnerUid?: string | null
+  planId: string
+  referredUid: string
+  paymentId: string
+  type: 'subscription' | 'lifetime'
+  nowMillis: number
+}): Promise<void> {
+  const { promoCode, promoOwnerUid, planId, referredUid, paymentId, type, nowMillis } = params
+  if (!promoCode || !promoOwnerUid) return
+  const owner = await getInfluencer(promoOwnerUid)
+  if (!owner || owner.status !== 'approved') {
+    console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, paymentId })
+    return
+  }
+  const commissionPaise = commissionForPlan(owner.commissionRates, planId)
+  if (commissionPaise <= 0) return
+  await recordReferral({
+    id: `pay-${paymentId}`,
+    code: promoCode,
+    ownerUid: promoOwnerUid,
+    referredUid,
+    type,
+    planId,
+    commissionPaise,
+    nowMillis,
+  })
+}
 
 export async function POST(req: Request): Promise<Response> {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET
@@ -69,6 +101,17 @@ export async function POST(req: Request): Promise<Response> {
           { merge: true },
         )
       }
+      if (effect.paymentId) {
+        await maybeRecordCommission({
+          promoCode: ctx.promoCode,
+          promoOwnerUid: ctx.promoOwnerUid,
+          planId: ctx.planId,
+          referredUid: ctx.uid,
+          paymentId: effect.paymentId,
+          type: 'subscription',
+          nowMillis: now,
+        })
+      }
     } else if (effect.kind === 'order-paid') {
       const orderSnap = await adminDb().doc(`orders/${effect.orderId}`).get()
       const order = orderSnap.exists ? orderSnap.data() : null
@@ -81,6 +124,15 @@ export async function POST(req: Request): Promise<Response> {
             { amountPaise: effect.amountPaise, planId: order.planId, appId: order.appId, type: 'lifetime', createdAt: now },
             { merge: true },
           )
+          await maybeRecordCommission({
+            promoCode: order.promoCode,
+            promoOwnerUid: order.promoOwnerUid,
+            planId: order.planId,
+            referredUid: order.uid,
+            paymentId: effect.paymentId,
+            type: 'lifetime',
+            nowMillis: now,
+          })
         }
       }
     }
