@@ -10,3 +10,6 @@ yarn-error.log*
 pnpm-debug.log*
 *.tsbuildinfo
 .claude/
+.vercel
+.env*
+!.env*.example
