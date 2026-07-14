@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Nav } from '@/components/nav'
 import { Footer } from '@/components/footer'
 import { AuthProvider } from '@/lib/auth-context'
+import { ReferralCatcher } from '@/components/referral-catcher'
 import { SITE_URL } from '@/config/site'
 import './globals.css'
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <ThemeProvider>
           <AuthProvider>
+            <ReferralCatcher />
             <a
               href="#main"
               className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-fg"
