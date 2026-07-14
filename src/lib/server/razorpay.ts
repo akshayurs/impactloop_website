@@ -36,12 +36,14 @@ export async function createSubscription(input: {
   razorpayPlanId: string
   totalCount: number
   notes: Record<string, string>
+  startAtUnix?: number
 }): Promise<{ id: string; status: string }> {
   const json = await rzpFetch('/subscriptions', {
     plan_id: input.razorpayPlanId,
     total_count: input.totalCount,
     customer_notify: 1,
     notes: input.notes,
+    ...(input.startAtUnix ? { start_at: input.startAtUnix } : {}),
   })
   return { id: json.id, status: json.status }
 }

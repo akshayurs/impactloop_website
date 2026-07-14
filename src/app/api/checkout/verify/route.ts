@@ -1,6 +1,8 @@
 import { adminDb } from '@/lib/server/firebase-admin'
 import { buildLifetimeEntitlement, writeEntitlement } from '@/lib/server/entitlements'
+import { getInfluencer, recordReferral } from '@/lib/server/influencer'
 import { getPlanById } from '@/lib/server/plans-store'
+import { commissionForPlan } from '@/lib/server/promo'
 import { verifyPaymentSignature } from '@/lib/server/razorpay'
 import { requireUser, UnauthorizedError } from '@/lib/server/verify-token'
 
@@ -44,6 +46,26 @@ export async function POST(req: Request): Promise<Response> {
       { amountPaise: order.amountPaise, planId: order.planId, appId: order.appId, type: 'lifetime', createdAt: now },
       { merge: true },
     )
+    if (order.promoCode && order.promoOwnerUid) {
+      const owner = await getInfluencer(order.promoOwnerUid)
+      if (!owner || owner.status !== 'approved') {
+        console.warn('checkout verify: promo owner missing/not approved, skipping commission', { promoOwnerUid: order.promoOwnerUid, paymentId })
+      } else {
+        const commissionPaise = commissionForPlan(owner.commissionRates, order.planId)
+        if (commissionPaise > 0) {
+          await recordReferral({
+            id: `pay-${paymentId}`,
+            code: order.promoCode,
+            ownerUid: order.promoOwnerUid,
+            referredUid: uid,
+            type: 'lifetime',
+            planId: order.planId,
+            commissionPaise,
+            nowMillis: now,
+          })
+        }
+      }
+    }
     return Response.json({ granted: true })
   } catch (err) {
     console.error('checkout verify failed', err)

@@ -63,6 +63,23 @@ describe('REST client', () => {
     expect(JSON.parse(init.body)).toMatchObject({ plan_id: 'plan_x', total_count: 12, customer_notify: 1 })
   })
 
+  it('createSubscription includes start_at only when provided', async () => {
+    ;(fetch as any).mockResolvedValue(
+      new Response(JSON.stringify({ id: 'sub_1', status: 'created' }), { status: 200 }),
+    )
+    await createSubscription({ razorpayPlanId: 'plan_x', totalCount: 12, notes: { uid: 'u1' }, startAtUnix: 12345 })
+    const [, initWith] = (fetch as any).mock.calls[0]
+    expect(JSON.parse(initWith.body)).toMatchObject({ start_at: 12345 })
+
+    ;(fetch as any).mockClear()
+    ;(fetch as any).mockResolvedValue(
+      new Response(JSON.stringify({ id: 'sub_2', status: 'created' }), { status: 200 }),
+    )
+    await createSubscription({ razorpayPlanId: 'plan_x', totalCount: 12, notes: { uid: 'u1' } })
+    const [, initWithout] = (fetch as any).mock.calls[0]
+    expect(JSON.parse(initWithout.body)).not.toHaveProperty('start_at')
+  })
+
   it('createOrder posts integer paise amount', async () => {
     ;(fetch as any).mockResolvedValue(new Response(JSON.stringify({ id: 'order_1', amount: 199900 }), { status: 200 }))
     const res = await createOrder({ amountPaise: 199900, receipt: 'r1', notes: {} })
