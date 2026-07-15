@@ -166,17 +166,25 @@ export function AdminInfluencers() {
           Couldn't load influencers.
         </p>
       ) : !influencers ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <div className="space-y-3" aria-busy="true" aria-label="Loading influencers">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
+          ))}
+        </div>
       ) : influencers.length === 0 ? (
-        <p className="text-sm text-muted">No influencers yet.</p>
+        <Card className="rounded-2xl border-2 border-line-strong text-center">
+          <p className="text-sm text-muted">No influencer applications yet.</p>
+        </Card>
       ) : (
         <div className="space-y-3">
           {influencers.map((inf) => (
-            <Card key={inf.uid} className="p-4">
+            <Card key={inf.uid} className="rounded-2xl border-2 border-line-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-fg">{inf.email ?? inf.uid}</p>
-                  <p className="text-xs text-muted">Applied {new Date(inf.appliedAt).toLocaleDateString()}</p>
+                  <p className="font-display font-bold text-fg">{inf.email ?? inf.uid}</p>
+                  <p className="mt-0.5 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                    Applied {new Date(inf.appliedAt).toLocaleDateString()}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge
@@ -191,9 +199,9 @@ export function AdminInfluencers() {
               </div>
 
               {openUid === inf.uid ? (
-                <div className="mt-4 border-t border-line pt-4 space-y-4">
+                <div className="mt-4 space-y-4 border-t border-line pt-4">
                   {actionMsg ? (
-                    <p role={actionMsg.includes('failed') || actionMsg.includes('Error') ? 'alert' : 'status'} className={`text-sm ${actionMsg.includes('failed') || actionMsg.includes('Error') ? 'text-red-500' : 'text-green-600'}`}>
+                    <p role={actionMsg.includes('failed') || actionMsg.includes('Error') ? 'alert' : 'status'} className={`font-mono text-xs uppercase tracking-[0.1em] ${actionMsg.includes('failed') || actionMsg.includes('Error') ? 'text-red-500' : 'text-accent'}`}>
                       {actionMsg}
                     </p>
                   ) : null}
@@ -213,7 +221,9 @@ export function AdminInfluencers() {
                     <>
                       {!ratesForm ? (
                         <div>
-                          <p className="text-sm text-muted mb-2">Discount {inf.discountPct}% · Signup ₹{(inf.commissionRates.signupPaise / 100).toFixed(2)}</p>
+                          <p className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                            Discount {inf.discountPct}% · Signup ₹{(inf.commissionRates.signupPaise / 100).toFixed(2)}
+                          </p>
                           <Button size="sm" variant="outline" onClick={() => void startEditRates(inf)}>
                             Edit rates
                           </Button>
@@ -279,25 +289,25 @@ export function AdminInfluencers() {
                   ) : null}
 
                   {earnings ? (
-                    <div>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="border-t border-line pt-4">
+                      <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <p className="text-muted">Balance</p>
-                          <p className="font-medium text-fg">{formatINR(earnings.balancePaise)}</p>
+                          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Balance</p>
+                          <p className="mt-1 font-display text-xl font-bold text-fg">{formatINR(earnings.balancePaise)}</p>
                         </div>
                         <div>
-                          <p className="text-muted">Total earned</p>
-                          <p className="font-medium text-fg">{formatINR(earnings.totalCommissionPaise)}</p>
+                          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Total earned</p>
+                          <p className="mt-1 font-display text-xl font-bold text-fg">{formatINR(earnings.totalCommissionPaise)}</p>
                         </div>
                         <div>
-                          <p className="text-muted">Paid out</p>
-                          <p className="font-medium text-fg">{formatINR(earnings.paidPaise)}</p>
+                          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Paid out</p>
+                          <p className="mt-1 font-display text-xl font-bold text-fg">{formatINR(earnings.paidPaise)}</p>
                         </div>
                       </div>
 
                       {inf.status === 'approved' ? (
                         <div className="mt-4 border-t border-line pt-4">
-                          <h4 className="text-sm font-medium text-fg mb-2">Mark payment</h4>
+                          <h4 className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-fg">Mark payment</h4>
                           <div className="space-y-2">
                             <Input
                               label="Amount (₹)"

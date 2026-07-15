@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Stat } from '@/components/ui/section'
 import { Table } from '@/components/ui/table'
 import { formatINR } from '@/lib/format'
 import { useAuth } from '@/lib/auth-context'
@@ -104,14 +105,20 @@ export function InfluencerPortal() {
   }
 
   if (loading) {
-    return <p className="px-4 py-16 text-center text-muted">Loading…</p>
+    return (
+      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading influencer portal">
+        <div className="skeleton h-6 w-32 rounded-lg" />
+        <div className="skeleton mt-6 h-32 rounded-2xl" />
+      </div>
+    )
   }
 
   if (!user) {
     return (
       <Card className="mx-auto mt-16 max-w-sm text-center">
-        <p className="text-sm text-muted">Influencer portal</p>
-        <div className="mt-4">
+        <p className="kicker justify-center">Partner portal</p>
+        <p className="mt-4 text-sm text-muted">Sign in to view your promo code and earnings.</p>
+        <div className="mt-6">
           <Button onClick={() => void signIn()}>Sign in</Button>
         </div>
       </Card>
@@ -121,8 +128,9 @@ export function InfluencerPortal() {
   if (loadError) {
     return (
       <Card className="mx-auto mt-16 max-w-sm text-center">
-        <p role="alert" className="text-sm text-red-500">Couldn't load your profile.</p>
-        <div className="mt-4">
+        <p className="kicker justify-center">Partner portal</p>
+        <p role="alert" className="mt-4 text-sm text-red-500">Couldn't load your profile.</p>
+        <div className="mt-6">
           <Button variant="outline" size="sm" onClick={() => void load()}>Retry</Button>
         </div>
       </Card>
@@ -130,17 +138,23 @@ export function InfluencerPortal() {
   }
 
   if (!data) {
-    return <p className="px-4 py-16 text-center text-muted">Loading…</p>
+    return (
+      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading influencer portal">
+        <div className="skeleton h-6 w-32 rounded-lg" />
+        <div className="skeleton mt-6 h-32 rounded-2xl" />
+      </div>
+    )
   }
 
   const { influencer, suggestions, earnings } = data
 
   if (!influencer) {
     return (
-      <Card className="mx-auto mt-16 max-w-sm">
-        <p className="font-medium text-fg">Become an influencer</p>
+      <Card className="mx-auto mt-16 max-w-sm text-center">
+        <p className="kicker justify-center">Become a partner</p>
+        <p className="mt-4 font-display text-2xl font-bold text-fg">Earn on every referral</p>
         <p className="mt-2 text-sm text-muted">Apply from your account page to start earning commission on referrals.</p>
-        <div className="mt-4">
+        <div className="mt-6">
           <Button href="/account" variant="outline" size="sm">Go to account</Button>
         </div>
       </Card>
@@ -149,8 +163,9 @@ export function InfluencerPortal() {
 
   if (influencer.status === 'pending') {
     return (
-      <Card className="mx-auto mt-16 max-w-sm">
-        <div className="flex items-center gap-2">
+      <Card className="mx-auto mt-16 max-w-sm text-center">
+        <p className="kicker justify-center">Partner portal</p>
+        <div className="mt-4 flex items-center justify-center gap-2">
           <Badge>pending</Badge>
           <p className="text-sm text-muted">Application under review</p>
         </div>
@@ -163,33 +178,37 @@ export function InfluencerPortal() {
 
   if (influencer.status === 'rejected') {
     return (
-      <Card className="mx-auto mt-16 max-w-sm">
-        <div className="flex items-center gap-2">
+      <Card className="mx-auto mt-16 max-w-sm text-center">
+        <p className="kicker justify-center">Partner portal</p>
+        <div className="mt-4 flex items-center justify-center gap-2">
           <Badge tone="danger">rejected</Badge>
         </div>
         <p className="mt-4 text-sm text-muted">Your application was not approved. You can apply again from your account page.</p>
-        <div className="mt-4">
+        <div className="mt-6">
           <Button href="/account" variant="outline" size="sm">Reapply</Button>
         </div>
       </Card>
     )
   }
 
+  const shareLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/?ref=${influencer.promoCode ?? ''}`
+
   return (
     <div className="space-y-6">
       <Card>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-fg">Promo code</p>
-            <p className="mt-1 text-sm text-muted">Share your unique code to earn commissions</p>
+            <p className="kicker">Promo code</p>
+            <p className="mt-2 text-sm text-muted">Share your unique code to earn commissions</p>
           </div>
           <Badge tone="success">approved</Badge>
         </div>
 
         {influencer.promoCode ? (
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <code className="rounded-lg border border-line bg-bg-raised px-3 py-2 font-mono text-sm font-medium tracking-wider text-accent">{influencer.promoCode}</code>
+          <div className="mt-5 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="rounded-lg border-2 border-line-strong bg-bg-raised px-3 py-2 font-mono text-sm font-medium tracking-wider text-accent">{influencer.promoCode}</code>
+              <code className="grow truncate rounded-lg border border-line bg-card px-3 py-2 font-mono text-xs text-muted">{shareLink}</code>
               <Button variant="outline" size="sm" onClick={() => void copyShareLink()}>Copy link</Button>
             </div>
             {actionMsg ? <p role="status" className="text-xs text-muted">{actionMsg}</p> : null}
@@ -207,10 +226,10 @@ export function InfluencerPortal() {
         ) : null}
 
         {!influencer.promoCode || customCode ? (
-          <div className="mt-4 space-y-3 border-t border-line pt-4">
-            <div className="text-xs text-muted">
-              {!influencer.promoCode ? 'Pick or create your promo code:' : 'Create a new code:'}
-            </div>
+          <div className="mt-5 space-y-3 border-t border-line pt-5">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+              {!influencer.promoCode ? 'Pick or create your promo code' : 'Create a new code'}
+            </p>
             {suggestions.length > 0 && !customCode ? (
               <div className="flex flex-wrap gap-2">
                 {suggestions.map((s) => (
@@ -246,18 +265,9 @@ export function InfluencerPortal() {
       {earnings ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card className="border-accent/40 bg-accent-soft p-5">
-              <p className="text-xs font-medium text-muted">Balance</p>
-              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.balancePaise)}</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-xs font-medium text-muted">Total earned</p>
-              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.totalCommissionPaise)}</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-xs font-medium text-muted">Paid out</p>
-              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.paidPaise)}</p>
-            </Card>
+            <Stat label="Balance" value={formatINR(earnings.balancePaise)} highlight />
+            <Stat label="Total earned" value={formatINR(earnings.totalCommissionPaise)} />
+            <Stat label="Paid out" value={formatINR(earnings.paidPaise)} />
           </div>
 
           {earnings.referrals.length === 0 ? (
@@ -270,14 +280,22 @@ export function InfluencerPortal() {
 
           {earnings.referrals.length > 0 ? (
             <Card>
-              <p className="font-medium text-fg">Referrals</p>
+              <p className="kicker">Referrals</p>
               <div className="mt-4">
                 <Table head={['Date', 'Type', 'Plan', 'Commission']}>
                   {earnings.referrals.map((r) => (
                     <tr key={r.id}>
-                      <td className="px-4 py-3 text-sm">{new Date(r.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 font-mono text-sm">{new Date(r.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm capitalize">{r.type}</td>
-                      <td className="px-4 py-3 text-sm">{r.planId ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {r.planId ? (
+                          <span>
+                            <span className="text-accent">↳</span> {r.planId}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm font-medium text-fg">{formatINR(r.commissionPaise)}</td>
                     </tr>
                   ))}
@@ -288,13 +306,13 @@ export function InfluencerPortal() {
 
           {earnings.payouts.length > 0 ? (
             <Card>
-              <p className="font-medium text-fg">Payouts</p>
-              <ul className="mt-4 space-y-2 text-sm">
+              <p className="kicker">Payouts</p>
+              <ul className="mt-4 divide-y divide-line rounded-2xl border border-line text-sm">
                 {earnings.payouts.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between border-t border-line pt-2 first:border-0 first:pt-0">
+                  <li key={p.id} className="flex items-center justify-between px-4 py-3">
                     <div>
-                      <p className="text-fg">{new Date(p.paidAt).toLocaleDateString()}</p>
-                      <p className="text-xs text-muted">{p.note}</p>
+                      <p className="font-mono text-fg">{new Date(p.paidAt).toLocaleDateString()}</p>
+                      <p className="mt-0.5 text-xs text-muted">{p.note}</p>
                     </div>
                     <p className="font-medium text-fg">{formatINR(p.amountPaise)}</p>
                   </li>

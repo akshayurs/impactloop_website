@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmModal } from '@/components/ui/modal'
+import { SectionHeader } from '@/components/ui/section'
 import { formatINR } from '@/lib/format'
 import { useAuth } from '@/lib/auth-context'
 
@@ -158,18 +159,21 @@ export function AccountView() {
   if (loading || !user) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-busy="true" aria-label="Loading account">
-        <div className="skeleton h-9 w-40 rounded-lg" />
-        <div className="skeleton mt-8 h-32 rounded-2xl" />
-        <div className="skeleton mt-6 h-40 rounded-2xl" />
+        <div className="skeleton h-4 w-28 rounded-full" />
+        <div className="skeleton mt-4 h-9 w-40 rounded-lg" />
+        <div className="skeleton mt-10 h-28 rounded-2xl" />
+        <div className="skeleton mt-10 h-5 w-32 rounded" />
+        <div className="skeleton mt-4 h-32 rounded-2xl" />
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="font-display text-4xl font-bold text-fg">Account</h1>
+      <p className="kicker">Your account</p>
+      <h1 className="mt-4 font-display text-4xl font-bold text-fg">Account</h1>
 
-      <Card className="mt-8">
+      <Card className="mt-10">
         <div className="flex items-center gap-4">
           {user.photoURL ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -189,14 +193,16 @@ export function AccountView() {
         </div>
       </Card>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">Subscriptions</h2>
+      <div className="mt-12">
+        <SectionHeader kicker="Subscriptions" />
+      </div>
       {cancelError ? (
-        <p role="alert" className="mt-2 text-sm text-red-500">
+        <p role="alert" className="mt-4 text-sm text-red-500">
           {cancelError}
         </p>
       ) : null}
       {fetchError ? (
-        <Card className="mt-4">
+        <Card className="mt-6">
           <p role="alert" className="text-sm text-red-500">
             Couldn’t load your subscriptions.
           </p>
@@ -207,9 +213,9 @@ export function AccountView() {
           </div>
         </Card>
       ) : !summary ? (
-        <div className="skeleton mt-4 h-28 rounded-2xl" aria-label="Loading subscriptions" />
+        <div className="skeleton mt-6 h-28 rounded-2xl" aria-label="Loading subscriptions" />
       ) : summary.apps.length === 0 ? (
-        <Card className="mt-4">
+        <Card className="mt-6">
           <p className="text-sm text-muted">No subscriptions yet.</p>
           <div className="mt-4 flex gap-2">
             <Button href="/pricing" size="sm">
@@ -223,9 +229,9 @@ export function AccountView() {
         </Card>
       ) : (
         summary.apps.map(({ appId, subscription }) => (
-          <Card key={appId} className="mt-4">
+          <Card key={appId} className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-display text-lg font-semibold capitalize text-fg">{appId}</h3>
+              <h3 className="font-display text-xl font-bold capitalize text-fg">{appId}</h3>
               {subscription ? (
                 <Badge tone={subscription.status === 'trial' ? 'default' : subscription.status === 'active' || subscription.status === 'lifetime' ? 'success' : 'warn'}>
                   {subscription.status}
@@ -234,7 +240,7 @@ export function AccountView() {
             </div>
             {subscription ? (
               <>
-                <p className="mt-2 text-sm text-muted">
+                <p className="mt-3 font-mono text-xs uppercase tracking-[0.18em] text-muted">
                   {subscription.status === 'trial' ? (
                     `Trial ends ${new Date(subscription.expiryTimeMillis!).toLocaleDateString()}`
                   ) : (
@@ -256,7 +262,7 @@ export function AccountView() {
               </>
             ) : (
               <>
-                <p className="mt-2 text-sm text-muted">No active subscription.</p>
+                <p className="mt-3 text-sm text-muted">No active subscription.</p>
                 <div className="mt-4">
                   <Button variant="outline" size="sm" disabled={trialPending} onClick={() => void requestTrial(appId)}>
                     {trialPending ? 'Starting trial…' : 'Try free trial'}
@@ -269,15 +275,15 @@ export function AccountView() {
         ))
       )}
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">Influencer program</h2>
+      <div className="mt-12">
+        <SectionHeader kicker="Influencer program" />
+      </div>
       {influencerLoading ? (
-        <Card className="mt-4">
-          <p className="text-sm text-muted">Loading…</p>
-        </Card>
+        <div className="skeleton mt-6 h-24 rounded-2xl" aria-label="Loading influencer status" />
       ) : influencerStatus ? (
-        <Card className="mt-4">
+        <Card className="mt-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
               {influencerStatus === 'pending' && 'Application under review'}
               {influencerStatus === 'approved' && 'Approved'}
               {influencerStatus === 'rejected' && 'Application rejected'}
@@ -293,13 +299,14 @@ export function AccountView() {
           </div>
         </Card>
       ) : (
-        <Card className="mt-4">
-          <p className="text-sm text-muted mb-4">Earn commissions by referring users with your promo code.</p>
+        <Card className="mt-6">
+          <p className="mb-4 text-sm text-muted">Earn commissions by referring users with your promo code.</p>
           {applyError ? (
             <p role="alert" className="mb-4 text-sm text-red-500">
               {applyError}
             </p>
           ) : null}
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-muted">Social links</p>
           <div className="space-y-3">
             {socialLinks.map((link, i) => (
               <div key={i} className="flex gap-2">
@@ -312,7 +319,7 @@ export function AccountView() {
                     newLinks[i] = e.target.value
                     setSocialLinks(newLinks)
                   }}
-                  className="flex-1 rounded-md border border-line bg-bg px-3 py-2 text-sm text-fg placeholder-muted"
+                  className="h-10 flex-1 rounded-lg border border-line bg-card px-3 text-sm text-fg placeholder:text-muted"
                 />
                 {socialLinks.length > 1 ? (
                   <Button
@@ -360,15 +367,21 @@ export function AccountView() {
 
       {summary && summary.payments.length > 0 ? (
         <>
-          <h2 className="mt-10 font-display text-xl font-semibold text-fg">Payment history</h2>
-          <Card className="mt-4">
+          <div className="mt-12">
+            <SectionHeader kicker="Payment history" />
+          </div>
+          <Card className="mt-6 p-0">
             <ul className="divide-y divide-line">
               {summary.payments.map((p) => (
-                <li key={p.id} className="flex items-center justify-between py-3 text-sm">
-                  <span className="text-muted">
-                    {new Date(p.createdAt).toLocaleDateString()} · {p.appId} · {p.type}
+                <li key={p.id} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
+                  <span className="min-w-0 truncate text-muted">
+                    <span className="font-mono text-xs text-muted">{new Date(p.createdAt).toLocaleDateString()}</span>
+                    {' · '}
+                    <span className="capitalize">{p.appId}</span>
+                    {' · '}
+                    {p.type}
                   </span>
-                  <span className="font-medium text-fg">{formatINR(p.amountPaise)}</span>
+                  <span className="shrink-0 font-display font-semibold text-fg">{formatINR(p.amountPaise)}</span>
                 </li>
               ))}
             </ul>

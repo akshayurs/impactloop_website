@@ -5,8 +5,9 @@ export const metadata: Metadata = { title: 'Terms' }
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="font-display text-4xl font-bold text-fg">Terms &amp; Conditions</h1>
-      <p className="mt-3 text-muted">Last updated: 26 June 2026</p>
+      <span className="kicker">Legal</span>
+      <h1 className="mt-4 font-display text-4xl font-bold text-fg sm:text-5xl">Terms &amp; Conditions</h1>
+      <p className="mt-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">Last updated: 26 June 2026</p>
 
       <p className="mt-8 text-muted">
         Impact Loop is an indie app studio operated by an individual (sole proprietor) based in
@@ -15,7 +16,9 @@ export default function TermsPage() {
         advice.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">1. Acceptance of terms</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
+        1. Acceptance of terms
+      </h2>
       <p className="mt-3 text-muted">
         These Terms &amp; Conditions (&ldquo;Terms&rdquo;) govern your access to and use of the
         Impact Loop website (the &ldquo;Site&rdquo;) and our mobile applications, including CrackLoop
@@ -24,7 +27,7 @@ export default function TermsPage() {
         Services.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">2. Eligibility</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">2. Eligibility</h2>
       <p className="mt-3 text-muted">
         You must be at least 13 years old (or the minimum age of digital consent in your country, if
         higher) to use the Services. The Services are intended for a general adult audience and are
@@ -32,24 +35,32 @@ export default function TermsPage() {
         requirement and that any information you provide is accurate.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">3. Use of the site</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">3. Use of the site</h2>
       <p className="mt-3 text-muted">
         You may use the Site for lawful, personal, and non-commercial purposes. You agree not to:
       </p>
-      <ul className="mt-3 list-disc space-y-2 pl-5 text-muted">
-        <li>Use the Services in any way that violates applicable laws or regulations.</li>
-        <li>
+      <ul className="mt-3 space-y-2 text-muted">
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          Use the Services in any way that violates applicable laws or regulations.
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
           Attempt to gain unauthorized access to, interfere with, or disrupt the Services or their
           underlying infrastructure.
         </li>
-        <li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
           Copy, scrape, reproduce, or redistribute content from the Services without prior written
           permission.
         </li>
-        <li>Use the Services to transmit malicious code or engage in abusive behavior.</li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          Use the Services to transmit malicious code or engage in abusive behavior.
+        </li>
       </ul>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">4. Apps &amp; license</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">4. Apps &amp; license</h2>
       <p className="mt-3 text-muted">
         Our applications, including CrackLoop, are provided to you under a limited, non-exclusive,
         non-transferable, revocable license for your personal use, subject to these Terms and the
@@ -58,7 +69,7 @@ export default function TermsPage() {
         purposes and does not guarantee any particular outcome, employment, or result.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
         5. Purchases &amp; in-app products
       </h2>
       <p className="mt-3 text-muted">
@@ -69,7 +80,7 @@ export default function TermsPage() {
         Prices and the features included in any paid tier may change over time.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">6. Intellectual property</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">6. Intellectual property</h2>
       <p className="mt-3 text-muted">
         The Services, including all text, graphics, diagrams, logos, software, and design, are owned
         by Impact Loop or its licensors and are protected by intellectual-property laws. The names
@@ -78,7 +89,7 @@ export default function TermsPage() {
         consent.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
         7. Third-party services &amp; privacy
       </h2>
       <p className="mt-3 text-muted">
@@ -89,7 +100,7 @@ export default function TermsPage() {
         practices of any third party.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">8. Disclaimers</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">8. Disclaimers</h2>
       <p className="mt-3 text-muted">
         The Services are provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without
         warranties of any kind, whether express or implied, including but not limited to fitness for
@@ -97,7 +108,7 @@ export default function TermsPage() {
         be uninterrupted, error-free, or that educational content is complete or current.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
         9. Limitation of liability
       </h2>
       <p className="mt-3 text-muted">
@@ -107,7 +118,7 @@ export default function TermsPage() {
         excludes liability that cannot be excluded under applicable law.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">10. Termination</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">10. Termination</h2>
       <p className="mt-3 text-muted">
         We may suspend or terminate your access to the Services at any time, without notice, if you
         breach these Terms or use the Services unlawfully. You may stop using the Services at any
@@ -115,7 +126,7 @@ export default function TermsPage() {
         property, disclaimers, and limitation of liability — will continue to apply.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">11. Governing law</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">11. Governing law</h2>
       <p className="mt-3 text-muted">
         These Terms are governed by and construed in accordance with the laws of India, without
         regard to its conflict-of-laws principles. Subject to any mandatory rights you may have as a
@@ -123,17 +134,17 @@ export default function TermsPage() {
         jurisdiction over any dispute arising out of or relating to these Terms or the Services.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">12. Changes to these terms</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">12. Changes to these terms</h2>
       <p className="mt-3 text-muted">
         We may update these Terms from time to time. When we do, we will revise the &ldquo;Last
         updated&rdquo; date above. Your continued use of the Services after changes take effect
         constitutes acceptance of the revised Terms.
       </p>
 
-      <h2 className="mt-10 font-display text-xl font-semibold text-fg">13. Contact us</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">13. Contact us</h2>
       <p className="mt-3 text-muted">
         Questions about these Terms? Reach us at{' '}
-        <a className="underline hover:no-underline" href="mailto:impactloopapps@gmail.com">
+        <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" href="mailto:impactloopapps@gmail.com">
           impactloopapps@gmail.com
         </a>
         .

@@ -39,12 +39,21 @@ export function AdminSettings() {
     }
   }
 
-  if (!settings) return <p className="text-sm text-muted">{msg ?? 'Loading…'}</p>
+  if (!settings) {
+    return (
+      <div className="max-w-md space-y-3" aria-busy="true" aria-label="Loading settings">
+        <div className="skeleton h-24 rounded-2xl border-2 border-line-strong" />
+        <div className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
+        <div className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
+        {msg ? <p role="alert" className="text-sm text-red-500">{msg}</p> : null}
+      </div>
+    )
+  }
 
   return (
-    <Card className="max-w-md">
+    <Card className="max-w-md rounded-2xl border-2 border-line-strong">
       <label className="flex items-center justify-between gap-4">
-        <span className="text-sm font-medium text-fg">Free trials enabled</span>
+        <span className="font-mono text-xs uppercase tracking-[0.18em] text-fg">Free trials enabled</span>
         <input
           type="checkbox"
           checked={settings.freeTrialEnabled}
@@ -52,7 +61,7 @@ export function AdminSettings() {
           className="h-5 w-5 accent-accent"
         />
       </label>
-      <div className="mt-4">
+      <div className="mt-4 border-t border-line pt-4">
         <Input
           label="Trial length (days)"
           type="number"
@@ -72,11 +81,11 @@ export function AdminSettings() {
           onChange={(e) => setSettings({ ...settings, promoDefaultExpiryMonths: Number(e.target.value) })}
         />
       </div>
-      <div className="mt-6 flex items-center gap-3">
+      <div className="mt-6 flex items-center gap-3 border-t border-line pt-4">
         <Button size="sm" disabled={saving} onClick={() => void save()}>
           {saving ? 'Saving…' : 'Save settings'}
         </Button>
-        {msg ? <p role="status" className="text-xs text-muted">{msg}</p> : null}
+        {msg ? <p role="status" className="font-mono text-xs uppercase tracking-[0.1em] text-muted">{msg}</p> : null}
       </div>
     </Card>
   )

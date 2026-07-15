@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 
 export function AuthButton() {
   const { user, loading, signIn } = useAuth()
-  if (loading) return <div className="h-8 w-20 animate-pulse rounded-full bg-card" aria-hidden />
+  if (loading) return <div className="skeleton h-8 w-20 rounded-full" aria-hidden />
   if (!user) {
     return (
       <Button size="sm" onClick={() => void signIn()}>
@@ -14,7 +14,7 @@ export function AuthButton() {
     )
   }
   return (
-    <Link href="/account" className="text-sm text-muted hover:text-fg">
+    <Link href="/account" className="font-mono text-xs uppercase tracking-[0.1em] text-muted hover:text-fg">
       Account
     </Link>
   )

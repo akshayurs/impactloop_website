@@ -73,17 +73,25 @@ export function AdminUsers() {
       {error ? (
         <p role="alert" className="mt-4 text-sm text-red-500">Couldn't load users.</p>
       ) : !users ? (
-        <p className="mt-4 text-sm text-muted">Loading…</p>
+        <div className="mt-4 space-y-3" aria-busy="true" aria-label="Loading users">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
+          ))}
+        </div>
       ) : users.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">No users found.</p>
+        <Card className="mt-4 rounded-2xl border-2 border-line-strong text-center">
+          <p className="text-sm text-muted">No users match that search.</p>
+        </Card>
       ) : (
         <div className="mt-4 space-y-3">
           {users.map((u) => (
-            <Card key={u.uid} className="p-4">
+            <Card key={u.uid} className="rounded-2xl border-2 border-line-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-fg">{u.displayName ?? u.email ?? u.uid}</p>
-                  <p className="text-xs text-muted">{u.email} · joined {new Date(u.createdAt).toLocaleDateString()}</p>
+                  <p className="font-display font-bold text-fg">{u.displayName ?? u.email ?? u.uid}</p>
+                  <p className="mt-0.5 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                    {u.email} · joined {new Date(u.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {u.admin ? <Badge>admin</Badge> : null}
@@ -96,14 +104,14 @@ export function AdminUsers() {
               {openUid === u.uid ? (
                 <div className="mt-4 border-t border-line pt-4">
                   {!detail ? (
-                    <p className="text-sm text-muted">{actionMsg ?? 'Loading…'}</p>
+                    <div className="skeleton h-12 rounded-lg" aria-busy="true" aria-label="Loading detail" />
                   ) : (
                     <>
                       {detail.apps.length === 0 ? <p className="text-sm text-muted">No app entitlements.</p> : null}
                       {detail.apps.map(({ appId, data }) => (
                         <div key={appId} className="mt-2 flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm text-fg">
-                            <span className="font-medium capitalize">{appId}</span>{' '}
+                            <span className="font-mono text-xs uppercase tracking-[0.1em] text-fg">{appId}</span>{' '}
                             <span className="text-muted">
                               {data.subscription
                                 ? `${data.subscription.status} · ${data.subscription.tier ?? ''} · ${
@@ -129,7 +137,7 @@ export function AdminUsers() {
                         </Button>
                       </div>
                       {detail.payments.length > 0 ? (
-                        <ul className="mt-4 space-y-1 text-xs text-muted">
+                        <ul className="mt-4 space-y-1 font-mono text-xs text-muted">
                           {detail.payments.map((p) => (
                             <li key={p.id}>
                               {new Date(p.createdAt).toLocaleDateString()} · {p.appId} · {p.type} · {formatINR(p.amountPaise)}
@@ -137,7 +145,7 @@ export function AdminUsers() {
                           ))}
                         </ul>
                       ) : null}
-                      {actionMsg ? <p role="status" className="mt-3 text-xs text-muted">{actionMsg}</p> : null}
+                      {actionMsg ? <p role="status" className="mt-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">{actionMsg}</p> : null}
                     </>
                   )}
                 </div>
