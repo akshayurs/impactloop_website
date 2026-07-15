@@ -24,12 +24,16 @@ export function PlanTierCard({
   blurb,
   benefits,
   plans,
+  offerName = '',
+  compareLabel = 'vs Google Play',
   highlight = false,
 }: {
   title: string
   blurb: string
   benefits: string[]
   plans: Plan[]
+  offerName?: string
+  compareLabel?: string
   highlight?: boolean
 }) {
   const [selectedId, setSelectedId] = useState(() => defaultPlanId(plans))
@@ -46,9 +50,9 @@ export function PlanTierCard({
         highlight ? 'border-accent shadow-(--shadow-glow)' : 'border-line-strong'
       }`}
     >
-      {highlight ? (
+      {offerName ? (
         <span className="absolute -top-3.5 left-8 rounded-full bg-accent px-3 py-1 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-accent-fg">
-          Most popular
+          {offerName}
         </span>
       ) : null}
 
@@ -93,7 +97,7 @@ export function PlanTierCard({
           : perMonth
             ? `≈ ${formatINR(perMonth)}/month · billed once`
             : 'Billed monthly'}
-        {savings ? <span className="text-accent"> · save {savings}% vs Play</span> : null}
+        {savings ? <span className="text-accent"> · save {savings}% {compareLabel}</span> : null}
       </p>
 
       <ul className="mt-6 space-y-2 border-t border-line pt-6">

@@ -2,37 +2,13 @@ import type { Metadata } from 'next'
 import { PlanTierCard } from '@/components/plan-tier-card'
 import { APPS } from '@/config/apps'
 import { getPlans, type Plan } from '@/config/plans'
+import { getTiersFromDb } from '@/lib/server/tiers-store'
 
 export const metadata: Metadata = {
   title: 'Pricing',
   description: 'Subscribe on the web and pay less than on Google Play. Cancel anytime.',
 }
 export const revalidate = 300
-
-/* PLACEHOLDER: verify tier benefit copy against actual entitlements before launch
-   (entitlements today: adFree, unlimitedAi — see src/lib/server/entitlements.ts). */
-const TIERS: Record<string, { title: string; blurb: string; benefits: string[] }> = {
-  pro: {
-    title: 'Pro',
-    blurb: 'The full learning experience, ad-free.',
-    benefits: [
-      'All concept decks unlocked',
-      'Quizzes, mock exams & review deck',
-      'Streaks, badges & leaderboards',
-      'Completely ad-free',
-    ],
-  },
-  ai: {
-    title: 'AI',
-    blurb: 'Unlimited AI tutoring on top of everything.',
-    benefits: [
-      'Unlimited AI tutor chat',
-      'Voice chat & mock interviews',
-      'Instant explanations mid-topic',
-      'Metered fairly, cancel anytime',
-    ],
-  },
-}
 
 const FAQS = [
   {
@@ -72,6 +48,7 @@ export default async function PricingPage() {
     APPS.filter((a) => a.status === 'live').map(async (app) => ({
       app,
       plans: await getPlans(app.id),
+      tiers: await getTiersFromDb(app.id),
     })),
   )
 
@@ -92,8 +69,8 @@ export default async function PricingPage() {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-        {sections.map(({ app, plans }) => {
-          const tiers = groupByTier(plans)
+        {sections.map(({ app, plans, tiers }) => {
+          const plansByTier = groupByTier(plans)
           return (
             <section key={app.id} className="mt-12" aria-labelledby={`pricing-${app.id}`}>
               <div className="flex items-baseline justify-between border-b-2 border-line-strong pb-4">
@@ -105,19 +82,20 @@ export default async function PricingPage() {
                 </p>
               </div>
               <div className="mx-auto mt-10 grid max-w-4xl gap-8 md:grid-cols-2">
-                {Array.from(tiers.entries()).map(([tier, tierPlans]) => {
-                  const meta = TIERS[tier] ?? { title: tier, blurb: '', benefits: [] }
-                  return (
+                {tiers
+                  .filter((t) => (plansByTier.get(t.tier) ?? []).length > 0)
+                  .map((t) => (
                     <PlanTierCard
-                      key={tier}
-                      title={meta.title}
-                      blurb={meta.blurb}
-                      benefits={meta.benefits}
-                      plans={tierPlans}
-                      highlight={tier === 'pro'}
+                      key={t.id}
+                      title={t.title}
+                      blurb={t.blurb}
+                      benefits={t.benefits}
+                      offerName={t.offerName}
+                      compareLabel={t.compareLabel}
+                      plans={plansByTier.get(t.tier)!}
+                      highlight={t.highlight}
                     />
-                  )
-                })}
+                  ))}
               </div>
             </section>
           )

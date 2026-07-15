@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { formatINR } from '@/lib/format'
 import { APPS } from '@/config/apps'
+import type { TierContent } from '@/config/tiers'
 import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin-fetch'
 
@@ -147,6 +148,8 @@ export function AdminPlans() {
         </div>
       </Card>
 
+      <TierContentEditor />
+
       <ConfirmModal
         open={deactivate !== null}
         title="Deactivate plan?"
@@ -237,6 +240,145 @@ function PlanRowCard({
           </p>
         </div>
       ) : null}
+    </Card>
+  )
+}
+
+function TierContentEditor() {
+  const { user } = useAuth()
+  const [tiers, setTiers] = useState<TierContent[] | null>(null)
+  const [error, setError] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!user) return
+    setError(false)
+    try {
+      const res = await adminFetch(user, '/api/admin/tiers')
+      if (!res.ok) throw new Error('failed')
+      setTiers((await res.json()).tiers)
+    } catch {
+      setError(true)
+    }
+  }, [user])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <div className="mt-12">
+      <div className="flex items-baseline justify-between border-b-2 border-line-strong pb-3">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Tier card content</p>
+        <p className="hidden font-mono text-xs uppercase tracking-[0.18em] text-muted sm:block">
+          shown on /pricing
+        </p>
+      </div>
+      <p className="mt-3 text-xs text-muted">
+        Title, description, benefits, offer badge, and savings label of each pricing card. Savings %
+        itself is computed from the plan prices above.
+      </p>
+      {error ? (
+        <Card className="mt-4 rounded-2xl border-2 border-line-strong">
+          <p role="alert" className="text-sm text-red-500">Couldn&rsquo;t load tier content.</p>
+          <div className="mt-4"><Button variant="outline" size="sm" onClick={() => void load()}>Retry</Button></div>
+        </Card>
+      ) : !tiers ? (
+        <div className="mt-4 space-y-3" aria-busy="true" aria-label="Loading tier content">
+          {[0, 1].map((i) => <div key={i} className="skeleton h-40 rounded-2xl border-2 border-line-strong" />)}
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {tiers.map((t) => <TierForm key={t.id} tier={t} onSaved={load} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TierForm({ tier, onSaved }: { tier: TierContent; onSaved: () => Promise<void> }) {
+  const { user } = useAuth()
+  const [form, setForm] = useState({
+    title: tier.title,
+    blurb: tier.blurb,
+    benefits: tier.benefits.join('\n'),
+    offerName: tier.offerName,
+    compareLabel: tier.compareLabel,
+    highlight: tier.highlight,
+    sort: String(tier.sort),
+  })
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  async function save() {
+    if (!user) return
+    setSaving(true)
+    setMsg(null)
+    try {
+      const res = await adminFetch(user, '/api/admin/tiers', {
+        method: 'PUT',
+        body: JSON.stringify({
+          appId: tier.appId,
+          tier: tier.tier,
+          title: form.title,
+          blurb: form.blurb,
+          benefits: form.benefits.split('\n').map((b) => b.trim()).filter(Boolean),
+          offerName: form.offerName,
+          compareLabel: form.compareLabel,
+          highlight: form.highlight,
+          sort: Number(form.sort),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setMsg(res.ok ? 'Saved — live on /pricing.' : (data.error ?? 'Save failed.'))
+      if (res.ok) await onSaved()
+    } catch {
+      setMsg('Save failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl border-2 border-line-strong">
+      <p className="flex items-center gap-2 font-display font-bold text-fg">
+        {tier.appId} · {tier.tier.toUpperCase()}
+        {form.highlight ? <Badge>highlighted</Badge> : null}
+      </p>
+      <div className="mt-4 grid gap-4">
+        <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+        <Input label="Description (blurb)" value={form.blurb} onChange={(e) => setForm({ ...form, blurb: e.target.value })} />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={`benefits-${tier.id}`} className="font-mono text-xs uppercase tracking-[0.14em] text-fg">
+            Benefits (one per line)
+          </label>
+          <textarea
+            id={`benefits-${tier.id}`}
+            rows={5}
+            value={form.benefits}
+            onChange={(e) => setForm({ ...form, benefits: e.target.value })}
+            className="rounded-lg border border-line bg-card px-3 py-2 text-sm text-fg"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Offer badge (empty = none)" value={form.offerName} onChange={(e) => setForm({ ...form, offerName: e.target.value })} />
+          <Input label="Savings label" value={form.compareLabel} onChange={(e) => setForm({ ...form, compareLabel: e.target.value })} />
+          <Input label="Sort" type="number" value={form.sort} onChange={(e) => setForm({ ...form, sort: e.target.value })} />
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-fg">
+            <input
+              type="checkbox"
+              checked={form.highlight}
+              onChange={(e) => setForm({ ...form, highlight: e.target.checked })}
+            />
+            Highlight card
+          </label>
+        </div>
+      </div>
+      <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
+        <Button size="sm" disabled={saving} onClick={() => void save()}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+        {msg ? <p role="status" className="font-mono text-xs uppercase tracking-[0.1em] text-muted">{msg}</p> : null}
+      </div>
     </Card>
   )
 }
