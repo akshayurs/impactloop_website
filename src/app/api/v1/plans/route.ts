@@ -15,5 +15,8 @@ export async function GET(req: Request): Promise<Response> {
     lifetime: p.lifetime,
     pricePaise: p.pricePaise,
   }))
-  return Response.json({ plans: publicPlans }, { headers: { 'Cache-Control': 'public, max-age=300' } })
+  return Response.json(
+    { plans: publicPlans },
+    { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' } },
+  )
 }
