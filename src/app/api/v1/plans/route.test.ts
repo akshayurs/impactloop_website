@@ -24,7 +24,7 @@ describe('GET /api/v1/plans', () => {
   it('returns public plan fields only, with cache header', async () => {
     const res = await GET(new Request('http://x/api/v1/plans?app=crackloop'))
     expect(res.status).toBe(200)
-    expect(res.headers.get('cache-control')).toContain('max-age=300')
+    expect(res.headers.get('cache-control')).toContain('s-maxage=300')
     const json = await res.json()
     expect(json.plans).toEqual([{ id: 'p1', tier: 'pro', durationMonths: 1, lifetime: false, pricePaise: 7900 }])
   })
