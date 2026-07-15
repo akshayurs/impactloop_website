@@ -10,7 +10,23 @@ import { APPS } from '@/config/apps'
 import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin-fetch'
 
-type UserRow = { uid: string; email: string | null; displayName: string | null; admin: boolean; createdAt: string }
+type PlanSummary = { appId: string; status: string; tier: string | null }
+type UserRow = { uid: string; email: string | null; displayName: string | null; admin: boolean; createdAt: string; plans: PlanSummary[] }
+
+const PLAN_FILTERS = ['all', 'active', 'trial', 'lifetime', 'cancelled', 'expired', 'none'] as const
+type PlanFilter = (typeof PLAN_FILTERS)[number]
+
+function matchesPlanFilter(u: UserRow, f: PlanFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'none') return u.plans.length === 0
+  return u.plans.some((p) => p.status === f)
+}
+
+function planTone(status: string): 'success' | 'warn' | 'default' {
+  if (status === 'active' || status === 'lifetime') return 'success'
+  if (status === 'trial') return 'default'
+  return 'warn'
+}
 type Detail = { profile: { uid: string; email: string | null; displayName: string | null } | null; apps: Array<{ appId: string; data: any }>; payments: any[] }
 
 export function AdminUsers() {
@@ -18,6 +34,7 @@ export function AdminUsers() {
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<UserRow[] | null>(null)
   const [sortBy, setSortBy] = useState<'joined-desc' | 'joined-asc' | 'name-asc'>('joined-desc')
+  const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
   const [error, setError] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -92,7 +109,7 @@ export function AdminUsers() {
   }
 
   const visible = users
-    ? [...users].sort((a, b) => {
+    ? users.filter((u) => matchesPlanFilter(u, planFilter)).sort((a, b) => {
           if (sortBy === 'joined-asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           if (sortBy === 'name-asc') return (a.displayName ?? a.email ?? a.uid).localeCompare(b.displayName ?? b.email ?? b.uid)
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -108,7 +125,24 @@ export function AdminUsers() {
         <Button variant="outline" size="sm" onClick={() => void load()}>Search</Button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by plan">
+          {PLAN_FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              aria-pressed={planFilter === f}
+              onClick={() => setPlanFilter(f)}
+              className={`rounded-full border-2 px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-colors ${
+                planFilter === f
+                  ? 'border-accent bg-accent text-accent-fg'
+                  : 'border-line text-muted hover:border-line-strong hover:text-fg'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-2">
           <label htmlFor="users-sort" className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Sort</label>
           <select
@@ -134,7 +168,7 @@ export function AdminUsers() {
         </div>
       ) : visible!.length === 0 ? (
         <Card className="mt-4 rounded-2xl border-2 border-line-strong text-center">
-          <p className="text-sm text-muted">No users match that search.</p>
+          <p className="text-sm text-muted">No loaded users match{planFilter === 'all' ? ' that search' : ` the ${planFilter} filter`}.</p>
         </Card>
       ) : (
         <div className="mt-4 space-y-3">
@@ -148,6 +182,16 @@ export function AdminUsers() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {u.plans.length === 0 ? (
+                    <span className="font-mono text-xs uppercase tracking-[0.1em] text-muted">no plan</span>
+                  ) : (
+                    u.plans.map((p) => (
+                      <Badge key={p.appId} tone={planTone(p.status)}>
+                        {p.appId}: {p.status}
+                        {p.tier ? ` · ${p.tier}` : ''}
+                      </Badge>
+                    ))
+                  )}
                   {u.admin ? <Badge>admin</Badge> : null}
                   <Button variant="outline" size="sm" onClick={() => void openDetail(u.uid)}>
                     {openUid === u.uid ? 'Refresh' : 'Details'}

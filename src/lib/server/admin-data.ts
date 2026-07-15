@@ -26,6 +26,29 @@ export async function getMetrics() {
   }
 }
 
+export type UserPlanSummary = { appId: string; status: string; tier: string | null }
+
+/* Joins each user's entitlement docs (one batched getAll per page) so the admin
+   list can show and filter by plan status without opening every user. */
+async function attachPlans<T extends { uid: string }>(users: T[]): Promise<Array<T & { plans: UserPlanSummary[] }>> {
+  if (users.length === 0) return []
+  const { APPS } = await import('@/config/apps')
+  const db = adminDb()
+  const refs = users.flatMap((u) => APPS.map((a) => db.doc(`users/${u.uid}/apps/${a.id}`)))
+  const snaps = await db.getAll(...refs)
+  const byUid = new Map<string, UserPlanSummary[]>()
+  snaps.forEach((snap, i) => {
+    const user = users[Math.floor(i / APPS.length)]
+    const appId = APPS[i % APPS.length].id
+    const sub = snap.exists ? (snap.data() as any).subscription : null
+    if (!sub) return
+    const list = byUid.get(user.uid) ?? []
+    list.push({ appId, status: sub.status ?? 'unknown', tier: sub.tier ?? null })
+    byUid.set(user.uid, list)
+  })
+  return users.map((u) => ({ ...u, plans: byUid.get(u.uid) ?? [] }))
+}
+
 export async function listUsers(q?: string, cursor?: string, limit = 50) {
   // Search scans a large page client-side (Admin SDK has no server-side search); no cursor then.
   const result = q ? await adminAuth().listUsers(1000) : await adminAuth().listUsers(limit, cursor)
@@ -36,14 +59,12 @@ export async function listUsers(q?: string, cursor?: string, limit = 50) {
     admin: u.customClaims?.admin === true,
     createdAt: u.metadata.creationTime,
   }))
-  if (!q) return { users, nextCursor: result.pageToken ?? null }
+  if (!q) return { users: await attachPlans(users), nextCursor: result.pageToken ?? null }
   const needle = q.toLowerCase()
-  return {
-    users: users.filter(
-      (u) => u.email?.toLowerCase().includes(needle) || u.displayName?.toLowerCase().includes(needle) || u.uid === q,
-    ),
-    nextCursor: null,
-  }
+  const matched = users.filter(
+    (u) => u.email?.toLowerCase().includes(needle) || u.displayName?.toLowerCase().includes(needle) || u.uid === q,
+  )
+  return { users: await attachPlans(matched.slice(0, 100)), nextCursor: null }
 }
 
 export async function getUserDetail(uid: string) {

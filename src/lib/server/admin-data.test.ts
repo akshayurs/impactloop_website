@@ -18,7 +18,8 @@ vi.mock('./firebase-admin', () => {
   })
   return {
     adminDb: () => ({
-      doc: (path: string) => ({ get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
+      doc: (path: string) => ({ path, get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
+      getAll: (...refs: Array<{ path: string }>) => Promise.resolve(refs.map(() => ({ exists: false, data: () => ({}) }))),
       collection: (path: string) => query(path),
       collectionGroup: (path: string) => ({ get: () => collGet(path) }),
     }),
@@ -48,7 +49,7 @@ describe('listUsers', () => {
     })
     const all = await listUsers()
     expect(all.users).toHaveLength(2)
-    expect(all.users[0]).toEqual({ uid: 'u1', email: 'Alice@x.com', displayName: 'Alice', admin: true, createdAt: 't1' })
+    expect(all.users[0]).toEqual({ uid: 'u1', email: 'Alice@x.com', displayName: 'Alice', admin: true, createdAt: 't1', plans: [] })
     expect(all.nextCursor).toBeNull()
     expect((await listUsers('ALICE')).users).toHaveLength(1)
     expect((await listUsers('nobody')).users).toHaveLength(0)
