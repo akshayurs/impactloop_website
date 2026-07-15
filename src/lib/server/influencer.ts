@@ -1,5 +1,10 @@
+import { AggregateField } from 'firebase-admin/firestore'
 import { adminDb } from './firebase-admin'
 import { expiryFromNow, normalizeCode, PROMO_CODE_RE } from './promo'
+
+function trunc(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : 0
+}
 
 export type InfluencerDoc = {
   status: 'pending' | 'approved' | 'rejected'
@@ -128,26 +133,30 @@ export async function recordReferral(input: {
 
 export async function getEarnings(uid: string) {
   const db = adminDb()
-  const refSnap = await db.collection('referrals').where('ownerUid', '==', uid).orderBy('createdAt', 'desc').limit(100).get()
-  const paySnap = await db.collection('payouts').where('influencerUid', '==', uid).orderBy('paidAt', 'desc').limit(100).get()
-  let totalCommissionPaise = 0
-  const referrals = refSnap.docs.map((d) => {
-    const data = d.data()
-    if (Number.isInteger(data.commissionPaise)) totalCommissionPaise += data.commissionPaise
-    return { id: d.id, ...data }
-  })
-  let paidPaise = 0
-  const payouts = paySnap.docs.map((d) => {
-    const data = d.data()
-    if (Number.isInteger(data.amountPaise)) paidPaise += data.amountPaise
-    return { id: d.id, ...data }
-  })
+  const referralsQuery = db.collection('referrals').where('ownerUid', '==', uid)
+  const payoutsQuery = db.collection('payouts').where('influencerUid', '==', uid)
+  const [commAgg, paidAgg, refSnap, paySnap] = await Promise.all([
+    referralsQuery.aggregate({ total: AggregateField.sum('commissionPaise') }).get(),
+    payoutsQuery.aggregate({ total: AggregateField.sum('amountPaise') }).get(),
+    referralsQuery.orderBy('createdAt', 'desc').limit(100).get(),
+    payoutsQuery.orderBy('paidAt', 'desc').limit(100).get(),
+  ])
+  const totalCommissionPaise = trunc(commAgg.data().total)
+  const paidPaise = trunc(paidAgg.data().total)
+  const referrals = refSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const payouts = paySnap.docs.map((d) => ({ id: d.id, ...d.data() }))
   return { totalCommissionPaise, paidPaise, balancePaise: totalCommissionPaise - paidPaise, referrals, payouts }
 }
 
 export async function recordPayout(influencerUid: string, amountPaise: number, note: string, nowMillis: number): Promise<void> {
   if (!Number.isInteger(amountPaise) || amountPaise <= 0) throw new Error('amountPaise must be positive integer')
-  const { balancePaise } = await getEarnings(influencerUid)
-  if (amountPaise > balancePaise) throw new Error(`amount exceeds balance (${balancePaise})`)
-  await adminDb().doc(`payouts/${influencerUid}-${nowMillis}`).set({ influencerUid, amountPaise, note, paidAt: nowMillis })
+  const db = adminDb()
+  await db.runTransaction(async (tx) => {
+    const commQuery = db.collection('referrals').where('ownerUid', '==', influencerUid).aggregate({ total: AggregateField.sum('commissionPaise') })
+    const paidQuery = db.collection('payouts').where('influencerUid', '==', influencerUid).aggregate({ total: AggregateField.sum('amountPaise') })
+    const [commAgg, paidAgg] = await Promise.all([tx.get(commQuery), tx.get(paidQuery)])
+    const balancePaise = trunc(commAgg.data().total) - trunc(paidAgg.data().total)
+    if (amountPaise > balancePaise) throw new Error(`amount exceeds balance (${balancePaise})`)
+    tx.set(db.doc(`payouts/${influencerUid}-${nowMillis}`), { influencerUid, amountPaise, note, paidAt: nowMillis })
+  })
 }

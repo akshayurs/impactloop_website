@@ -23,6 +23,7 @@ async function maybeRecordCommission(params: {
 }): Promise<void> {
   const { promoCode, promoOwnerUid, planId, referredUid, paymentId, type, nowMillis } = params
   if (!promoCode || !promoOwnerUid) return
+  if (promoOwnerUid === referredUid) return
   const owner = await getInfluencer(promoOwnerUid)
   if (!owner || owner.status !== 'approved') {
     console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, paymentId })
@@ -67,7 +68,11 @@ export async function POST(req: Request): Promise<Response> {
     if (effect.kind === 'subscription-update') {
       const idx = await adminDb().doc(`razorpaySubscriptions/${effect.subscriptionId}`).get()
       const notes = body?.payload?.subscription?.entity?.notes
-      const ctx = idx.exists ? idx.data() : notes?.uid ? { uid: notes.uid, appId: notes.appId, planId: notes.planId } : null
+      const ctx = idx.exists
+        ? idx.data()
+        : notes?.uid
+          ? { uid: notes.uid, appId: notes.appId, planId: notes.planId, promoCode: notes.promoCode, promoOwnerUid: notes.promoOwnerUid }
+          : null
       if (!ctx?.uid || !ctx.appId || !ctx.planId) {
         console.error('webhook: unresolvable subscription context', effect.subscriptionId)
         return Response.json({ ok: false, reason: 'unknown subscription' })
