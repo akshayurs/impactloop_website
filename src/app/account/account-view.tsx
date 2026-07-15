@@ -23,7 +23,10 @@ type Summary = {
     entitlements: { adFree: boolean; unlimitedAi: boolean } | null
   }>
   payments: Array<{ id: string; amountPaise: number; planId: string; appId: string; type: string; createdAt: number }>
+  paymentsCursor: string | null
 }
+
+type Payment = Summary['payments'][number]
 
 const TIER_LABEL = { pro: 'Pro', ai: 'AI' } as const
 
@@ -32,6 +35,10 @@ export function AccountView() {
   const router = useRouter()
   const [summary, setSummary] = useState<Summary | null>(null)
   const [fetchError, setFetchError] = useState(false)
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null)
+  const [paymentsPending, setPaymentsPending] = useState(false)
+  const [paymentsError, setPaymentsError] = useState(false)
   const [cancelApp, setCancelApp] = useState<string | null>(null)
   const [cancelPending, setCancelPending] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -50,11 +57,37 @@ export function AccountView() {
       const token = await user.getIdToken()
       const res = await fetch('/api/me/summary', { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) throw new Error('summary failed')
-      setSummary(await res.json())
+      const data: Summary = await res.json()
+      setSummary(data)
+      setPayments(data.payments)
+      setPaymentsCursor(data.paymentsCursor)
     } catch {
       setFetchError(true)
     }
   }, [user])
+
+  async function loadMorePayments() {
+    if (!user || !paymentsCursor) return
+    setPaymentsPending(true)
+    setPaymentsError(false)
+    try {
+      const token = await user.getIdToken()
+      const res = await fetch(`/api/me/payments?cursor=${encodeURIComponent(paymentsCursor)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('payments failed')
+      const data: { payments: Payment[]; nextCursor: string | null } = await res.json()
+      setPayments((prev) => {
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...data.payments.filter((p) => !seen.has(p.id))]
+      })
+      setPaymentsCursor(data.nextCursor)
+    } catch {
+      setPaymentsError(true)
+    } finally {
+      setPaymentsPending(false)
+    }
+  }
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -365,14 +398,14 @@ export function AccountView() {
         </Card>
       )}
 
-      {summary && summary.payments.length > 0 ? (
+      {payments.length > 0 ? (
         <>
           <div className="mt-12">
             <SectionHeader kicker="Payment history" />
           </div>
           <Card className="mt-6 p-0">
             <ul className="divide-y divide-line">
-              {summary.payments.map((p) => (
+              {payments.map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
                   <span className="min-w-0 truncate text-muted">
                     <span className="font-mono text-xs text-muted">{new Date(p.createdAt).toLocaleDateString()}</span>
@@ -386,6 +419,18 @@ export function AccountView() {
               ))}
             </ul>
           </Card>
+          {paymentsError ? (
+            <p role="alert" className="mt-4 text-center text-sm text-red-500">
+              Couldn’t load more payments — try again.
+            </p>
+          ) : null}
+          {paymentsCursor ? (
+            <div className="mt-4 flex justify-center">
+              <Button variant="outline" size="sm" disabled={paymentsPending} onClick={() => void loadMorePayments()}>
+                {paymentsPending ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : null}
 

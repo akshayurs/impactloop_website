@@ -11,7 +11,7 @@ vi.mock('@/lib/server/firebase-admin', () => ({
   adminDb: () => ({
     collection: (path: string) =>
       path.endsWith('/payments')
-        ? { orderBy: () => ({ limit: () => ({ get: paymentsGet }) }) }
+        ? { orderBy: () => ({ orderBy: () => ({ limit: () => ({ get: paymentsGet }) }) }) }
         : { listDocuments },
   }),
 }))

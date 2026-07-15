@@ -40,8 +40,13 @@ type InfluencerMe = {
       note: string
       paidAt: number
     }>
+    referralsCursor: string | null
+    payoutsCursor: string | null
   } | null
 }
+
+type Referral = NonNullable<InfluencerMe['earnings']>['referrals'][number]
+type Payout = NonNullable<InfluencerMe['earnings']>['payouts'][number]
 
 export function InfluencerPortal() {
   const { user, loading, signIn } = useAuth()
@@ -51,6 +56,14 @@ export function InfluencerPortal() {
   const [codeError, setCodeError] = useState<string | null>(null)
   const [codeLoading, setCodeLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [referrals, setReferrals] = useState<Referral[]>([])
+  const [referralsCursor, setReferralsCursor] = useState<string | null>(null)
+  const [referralsPending, setReferralsPending] = useState(false)
+  const [referralsError, setReferralsError] = useState(false)
+  const [payouts, setPayouts] = useState<Payout[]>([])
+  const [payoutsCursor, setPayoutsCursor] = useState<string | null>(null)
+  const [payoutsPending, setPayoutsPending] = useState(false)
+  const [payoutsError, setPayoutsError] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -58,7 +71,12 @@ export function InfluencerPortal() {
     try {
       const res = await adminFetch(user, '/api/influencer/me')
       if (!res.ok) throw new Error('failed')
-      setData(await res.json())
+      const json: InfluencerMe = await res.json()
+      setData(json)
+      setReferrals(json.earnings?.referrals ?? [])
+      setReferralsCursor(json.earnings?.referralsCursor ?? null)
+      setPayouts(json.earnings?.payouts ?? [])
+      setPayoutsCursor(json.earnings?.payoutsCursor ?? null)
     } catch {
       setLoadError(true)
     }
@@ -67,6 +85,46 @@ export function InfluencerPortal() {
   useEffect(() => {
     void load()
   }, [load])
+
+  async function loadMoreReferrals() {
+    if (!user || !referralsCursor) return
+    setReferralsPending(true)
+    setReferralsError(false)
+    try {
+      const res = await adminFetch(user, `/api/influencer/referrals?cursor=${encodeURIComponent(referralsCursor)}`)
+      if (!res.ok) throw new Error('failed')
+      const json: { referrals: Referral[]; nextCursor: string | null } = await res.json()
+      setReferrals((prev) => {
+        const seen = new Set(prev.map((r) => r.id))
+        return [...prev, ...json.referrals.filter((r) => !seen.has(r.id))]
+      })
+      setReferralsCursor(json.nextCursor)
+    } catch {
+      setReferralsError(true)
+    } finally {
+      setReferralsPending(false)
+    }
+  }
+
+  async function loadMorePayouts() {
+    if (!user || !payoutsCursor) return
+    setPayoutsPending(true)
+    setPayoutsError(false)
+    try {
+      const res = await adminFetch(user, `/api/influencer/payouts?cursor=${encodeURIComponent(payoutsCursor)}`)
+      if (!res.ok) throw new Error('failed')
+      const json: { payouts: Payout[]; nextCursor: string | null } = await res.json()
+      setPayouts((prev) => {
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...json.payouts.filter((p) => !seen.has(p.id))]
+      })
+      setPayoutsCursor(json.nextCursor)
+    } catch {
+      setPayoutsError(true)
+    } finally {
+      setPayoutsPending(false)
+    }
+  }
 
   async function pickCode(code: string) {
     if (!user) return
@@ -270,7 +328,7 @@ export function InfluencerPortal() {
             <Stat label="Paid out" value={formatINR(earnings.paidPaise)} />
           </div>
 
-          {earnings.referrals.length === 0 ? (
+          {referrals.length === 0 ? (
             <Card className="text-center">
               <p className="text-sm text-muted">
                 No referrals yet — share your link or code and they will show up here.
@@ -278,12 +336,12 @@ export function InfluencerPortal() {
             </Card>
           ) : null}
 
-          {earnings.referrals.length > 0 ? (
+          {referrals.length > 0 ? (
             <Card>
               <p className="kicker">Referrals</p>
               <div className="mt-4">
                 <Table head={['Date', 'Type', 'Plan', 'Commission']}>
-                  {earnings.referrals.map((r) => (
+                  {referrals.map((r) => (
                     <tr key={r.id}>
                       <td className="px-4 py-3 font-mono text-sm">{new Date(r.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm capitalize">{r.type}</td>
@@ -301,14 +359,26 @@ export function InfluencerPortal() {
                   ))}
                 </Table>
               </div>
+              {referralsError ? (
+                <p role="alert" className="mt-4 text-center text-sm text-red-500">
+                  Couldn’t load more referrals — try again.
+                </p>
+              ) : null}
+              {referralsCursor ? (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="outline" size="sm" disabled={referralsPending} onClick={() => void loadMoreReferrals()}>
+                    {referralsPending ? 'Loading…' : 'Load more'}
+                  </Button>
+                </div>
+              ) : null}
             </Card>
           ) : null}
 
-          {earnings.payouts.length > 0 ? (
+          {payouts.length > 0 ? (
             <Card>
               <p className="kicker">Payouts</p>
               <ul className="mt-4 divide-y divide-line rounded-2xl border border-line text-sm">
-                {earnings.payouts.map((p) => (
+                {payouts.map((p) => (
                   <li key={p.id} className="flex items-center justify-between px-4 py-3">
                     <div>
                       <p className="font-mono text-fg">{new Date(p.paidAt).toLocaleDateString()}</p>
@@ -318,6 +388,18 @@ export function InfluencerPortal() {
                   </li>
                 ))}
               </ul>
+              {payoutsError ? (
+                <p role="alert" className="mt-4 text-center text-sm text-red-500">
+                  Couldn’t load more payouts — try again.
+                </p>
+              ) : null}
+              {payoutsCursor ? (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="outline" size="sm" disabled={payoutsPending} onClick={() => void loadMorePayouts()}>
+                    {payoutsPending ? 'Loading…' : 'Load more'}
+                  </Button>
+                </div>
+              ) : null}
             </Card>
           ) : null}
         </>

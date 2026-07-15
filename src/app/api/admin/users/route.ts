@@ -5,7 +5,10 @@ export const runtime = 'nodejs'
 
 export async function GET(req: Request): Promise<Response> {
   return withAdmin(req, async () => {
-    const q = new URL(req.url).searchParams.get('q')
-    return Response.json({ users: await listUsers(q ?? undefined) })
+    const params = new URL(req.url).searchParams
+    const q = params.get('q')
+    const cursor = params.get('cursor')
+    const { users, nextCursor } = await listUsers(q ?? undefined, cursor ?? undefined)
+    return Response.json({ users, nextCursor })
   })
 }

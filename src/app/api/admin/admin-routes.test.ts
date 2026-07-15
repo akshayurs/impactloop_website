@@ -56,9 +56,9 @@ describe('admin handlers', () => {
   })
 
   it('users list passes q', async () => {
-    listUsers.mockResolvedValue([])
+    listUsers.mockResolvedValue({ users: [], nextCursor: null })
     await usersGET(new Request('http://x/api/admin/users?q=alice', authed))
-    expect(listUsers).toHaveBeenCalledWith('alice')
+    expect(listUsers).toHaveBeenCalledWith('alice', undefined)
   })
 
   it('user detail by uid', async () => {
@@ -124,8 +124,10 @@ describe('admin handlers', () => {
   })
 
   it('webhooks GET', async () => {
-    listWebhookEvents.mockResolvedValue([{ id: 'e1', event: 'x', receivedAt: 1 }])
+    listWebhookEvents.mockResolvedValue({ events: [{ id: 'e1', event: 'x', receivedAt: 1 }], nextCursor: null })
     const res = await webhooksGET(new Request('http://x', authed))
-    expect((await res.json()).events).toHaveLength(1)
+    const body = await res.json()
+    expect(body.events).toHaveLength(1)
+    expect(body.nextCursor).toBeNull()
   })
 })

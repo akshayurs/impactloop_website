@@ -8,17 +8,23 @@ const { docGet, docSet, collGet, listUsersFn, getUserFn, createPlan } = vi.hoist
   getUserFn: vi.fn(),
   createPlan: vi.fn(),
 }))
-vi.mock('./firebase-admin', () => ({
-  adminDb: () => ({
-    doc: (path: string) => ({ get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
-    collection: (path: string) => ({
-      orderBy: () => ({ limit: () => ({ get: () => collGet(path) }) }),
-      get: () => collGet(path),
+vi.mock('./firebase-admin', () => {
+  const query = (path: string): Record<string, unknown> => ({
+    orderBy: () => query(path),
+    limit: () => query(path),
+    startAfter: () => query(path),
+    where: () => query(path),
+    get: () => collGet(path),
+  })
+  return {
+    adminDb: () => ({
+      doc: (path: string) => ({ get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
+      collection: (path: string) => query(path),
+      collectionGroup: (path: string) => ({ get: () => collGet(path) }),
     }),
-    collectionGroup: (path: string) => ({ get: () => collGet(path) }),
-  }),
-  adminAuth: () => ({ listUsers: listUsersFn, getUser: getUserFn }),
-}))
+    adminAuth: () => ({ listUsers: listUsersFn, getUser: getUserFn }),
+  }
+})
 vi.mock('./razorpay', () => ({ createPlan }))
 
 import {
@@ -41,10 +47,18 @@ describe('listUsers', () => {
       ],
     })
     const all = await listUsers()
-    expect(all).toHaveLength(2)
-    expect(all[0]).toEqual({ uid: 'u1', email: 'Alice@x.com', displayName: 'Alice', admin: true, createdAt: 't1' })
-    expect(await listUsers('ALICE')).toHaveLength(1)
-    expect(await listUsers('nobody')).toHaveLength(0)
+    expect(all.users).toHaveLength(2)
+    expect(all.users[0]).toEqual({ uid: 'u1', email: 'Alice@x.com', displayName: 'Alice', admin: true, createdAt: 't1' })
+    expect(all.nextCursor).toBeNull()
+    expect((await listUsers('ALICE')).users).toHaveLength(1)
+    expect((await listUsers('nobody')).users).toHaveLength(0)
+  })
+
+  it('passes cursor through and returns next page token', async () => {
+    listUsersFn.mockResolvedValue({ users: [], pageToken: 'tok2' })
+    const page = await listUsers(undefined, 'tok1')
+    expect(listUsersFn).toHaveBeenCalledWith(50, 'tok1')
+    expect(page.nextCursor).toBe('tok2')
   })
 })
 
@@ -177,11 +191,20 @@ describe('updatePlanFields', () => {
 })
 
 describe('listWebhookEvents', () => {
-  it('returns events ordered desc', async () => {
+  it('returns events with null cursor on a short page', async () => {
     collGet.mockResolvedValue({
       docs: [{ id: 'e1', data: () => ({ event: 'subscription.charged', receivedAt: 200 }) }],
     })
-    const events = await listWebhookEvents()
-    expect(events).toEqual([{ id: 'e1', event: 'subscription.charged', receivedAt: 200 }])
+    const page = await listWebhookEvents()
+    expect(page.events).toEqual([{ id: 'e1', event: 'subscription.charged', receivedAt: 200 }])
+    expect(page.nextCursor).toBeNull()
+  })
+
+  it('returns a cursor when the page is full', async () => {
+    collGet.mockResolvedValue({
+      docs: [{ id: 'e2', data: () => ({ event: 'order.paid', receivedAt: 100 }) }],
+    })
+    const page = await listWebhookEvents(1)
+    expect(page.nextCursor).toBe('100_e2')
   })
 })

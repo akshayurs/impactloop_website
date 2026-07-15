@@ -24,8 +24,9 @@ export async function getMetrics() {
   }
 }
 
-export async function listUsers(q?: string) {
-  const result = await adminAuth().listUsers(1000)
+export async function listUsers(q?: string, cursor?: string, limit = 50) {
+  // Search scans a large page client-side (Admin SDK has no server-side search); no cursor then.
+  const result = q ? await adminAuth().listUsers(1000) : await adminAuth().listUsers(limit, cursor)
   const users = result.users.map((u) => ({
     uid: u.uid,
     email: u.email ?? null,
@@ -33,11 +34,14 @@ export async function listUsers(q?: string) {
     admin: u.customClaims?.admin === true,
     createdAt: u.metadata.creationTime,
   }))
-  if (!q) return users
+  if (!q) return { users, nextCursor: result.pageToken ?? null }
   const needle = q.toLowerCase()
-  return users.filter(
-    (u) => u.email?.toLowerCase().includes(needle) || u.displayName?.toLowerCase().includes(needle) || u.uid === q,
-  )
+  return {
+    users: users.filter(
+      (u) => u.email?.toLowerCase().includes(needle) || u.displayName?.toLowerCase().includes(needle) || u.uid === q,
+    ),
+    nextCursor: null,
+  }
 }
 
 export async function getUserDetail(uid: string) {
@@ -127,7 +131,26 @@ export async function updatePlanFields(
   await adminDb().doc(`plans/${planId}`).set(patch, { merge: true })
 }
 
-export async function listWebhookEvents(limit = 50) {
-  const snap = await adminDb().collection('webhookEvents').orderBy('receivedAt', 'desc').limit(limit).get()
-  return snap.docs.map((d: any) => ({ id: d.id, event: d.data().event as string, receivedAt: d.data().receivedAt as number }))
+/* Cursor format shared by paginated Firestore lists: "<orderValue>_<docId>". */
+export function parseCursor(cursor: string | undefined | null): { value: number; id: string } | null {
+  if (!cursor) return null
+  const sep = cursor.indexOf('_')
+  if (sep < 1) return null
+  const value = Number(cursor.slice(0, sep))
+  const id = cursor.slice(sep + 1)
+  return Number.isFinite(value) && id ? { value, id } : null
+}
+
+export async function listWebhookEvents(limit = 50, cursor?: string) {
+  let query = adminDb()
+    .collection('webhookEvents')
+    .orderBy('receivedAt', 'desc')
+    .orderBy('__name__', 'desc')
+    .limit(limit)
+  const after = parseCursor(cursor)
+  if (after) query = query.startAfter(after.value, after.id)
+  const snap = await query.get()
+  const events = snap.docs.map((d: any) => ({ id: d.id, event: d.data().event as string, receivedAt: d.data().receivedAt as number }))
+  const last = snap.docs[snap.docs.length - 1]
+  return { events, nextCursor: snap.docs.length === limit && last ? `${last.data().receivedAt}_${last.id}` : null }
 }

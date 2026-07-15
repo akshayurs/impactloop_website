@@ -17,6 +17,9 @@ export function AdminUsers() {
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<UserRow[] | null>(null)
   const [error, setError] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState(false)
   const [openUid, setOpenUid] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [trialDays, setTrialDays] = useState(7)
@@ -26,10 +29,13 @@ export function AdminUsers() {
   const load = useCallback(async () => {
     if (!user) return
     setError(false)
+    setLoadMoreError(false)
     try {
       const res = await adminFetch(user, `/api/admin/users?q=${encodeURIComponent(q)}`)
       if (!res.ok) throw new Error('failed')
-      setUsers((await res.json()).users)
+      const data = await res.json()
+      setUsers(data.users)
+      setNextCursor(data.nextCursor ?? null)
     } catch {
       setError(true)
     }
@@ -38,6 +44,27 @@ export function AdminUsers() {
   useEffect(() => {
     void load()
   }, [load])
+
+  async function loadMore() {
+    if (!user || !nextCursor) return
+    setLoadingMore(true)
+    setLoadMoreError(false)
+    try {
+      const res = await adminFetch(user, `/api/admin/users?cursor=${encodeURIComponent(nextCursor)}&q=${encodeURIComponent(q)}`)
+      if (!res.ok) throw new Error('failed')
+      const data = await res.json()
+      setUsers((prev) => {
+        const existing = new Set((prev ?? []).map((u) => u.uid))
+        const additions = (data.users as UserRow[]).filter((u) => !existing.has(u.uid))
+        return [...(prev ?? []), ...additions]
+      })
+      setNextCursor(data.nextCursor ?? null)
+    } catch {
+      setLoadMoreError(true)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function openDetail(uid: string) {
     if (!user) return
@@ -154,6 +181,17 @@ export function AdminUsers() {
           ))}
         </div>
       )}
+
+      {loadMoreError ? (
+        <p role="alert" className="mt-4 text-center text-sm text-red-500">Couldn't load more users.</p>
+      ) : null}
+      {nextCursor ? (
+        <div className="mt-4 flex justify-center">
+          <Button variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMore()}>
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
+      ) : null}
 
       <ConfirmModal
         open={revokeTarget !== null}

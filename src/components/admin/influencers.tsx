@@ -26,6 +26,9 @@ export function AdminInfluencers() {
   const [influencers, setInfluencers] = useState<InfluencerRow[] | null>(null)
   const [plans, setPlans] = useState<Plan[] | null>(null)
   const [error, setError] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState(false)
   const [openUid, setOpenUid] = useState<string | null>(null)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [earnings, setEarnings] = useState<any | null>(null)
@@ -42,10 +45,13 @@ export function AdminInfluencers() {
   const load = useCallback(async () => {
     if (!user) return
     setError(false)
+    setLoadMoreError(false)
     try {
       const res = await adminFetch(user, '/api/admin/influencers')
       if (!res.ok) throw new Error('failed')
-      setInfluencers((await res.json()).influencers)
+      const data = await res.json()
+      setInfluencers(data.influencers)
+      setNextCursor(data.nextCursor ?? null)
       const plansRes = await adminFetch(user, '/api/admin/plans')
       if (plansRes.ok) {
         const allPlans = (await plansRes.json()).plans
@@ -59,6 +65,27 @@ export function AdminInfluencers() {
   useEffect(() => {
     void load()
   }, [load])
+
+  async function loadMore() {
+    if (!user || !nextCursor) return
+    setLoadingMore(true)
+    setLoadMoreError(false)
+    try {
+      const res = await adminFetch(user, `/api/admin/influencers?cursor=${encodeURIComponent(nextCursor)}`)
+      if (!res.ok) throw new Error('failed')
+      const data = await res.json()
+      setInfluencers((prev) => {
+        const existing = new Set((prev ?? []).map((i) => i.uid))
+        const additions = (data.influencers as InfluencerRow[]).filter((i) => !existing.has(i.uid))
+        return [...(prev ?? []), ...additions]
+      })
+      setNextCursor(data.nextCursor ?? null)
+    } catch {
+      setLoadMoreError(true)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function openDetail(uid: string) {
     setOpenUid(uid)
@@ -341,6 +368,17 @@ export function AdminInfluencers() {
           ))}
         </div>
       )}
+
+      {loadMoreError ? (
+        <p role="alert" className="mt-4 text-center text-sm text-red-500">Couldn't load more influencers.</p>
+      ) : null}
+      {nextCursor ? (
+        <div className="mt-4 flex justify-center">
+          <Button variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMore()}>
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
+      ) : null}
 
       <ConfirmModal
         open={confirmReject !== null}

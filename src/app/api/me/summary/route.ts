@@ -22,9 +22,16 @@ export async function GET(req: Request): Promise<Response> {
         return { appId: ref.id, subscription: data?.subscription ?? null, entitlements: data?.entitlements ?? null }
       }),
     )
-    const paymentsSnap = await db.collection(`users/${uid}/payments`).orderBy('createdAt', 'desc').limit(20).get()
+    const paymentsSnap = await db
+      .collection(`users/${uid}/payments`)
+      .orderBy('createdAt', 'desc')
+      .orderBy('__name__', 'desc')
+      .limit(20)
+      .get()
     const payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    return Response.json({ apps, payments })
+    const last = paymentsSnap.docs[paymentsSnap.docs.length - 1]
+    const paymentsCursor = paymentsSnap.docs.length === 20 && last ? `${last.data().createdAt}_${last.id}` : null
+    return Response.json({ apps, payments, paymentsCursor })
   } catch (err) {
     console.error('summary failed', err)
     return Response.json({ error: 'summary failed' }, { status: 500 })

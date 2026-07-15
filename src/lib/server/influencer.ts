@@ -131,21 +131,75 @@ export async function recordReferral(input: {
   })
 }
 
+const EARNINGS_PAGE = 20
+
+function pageCursor(docs: FirebaseFirestore.QueryDocumentSnapshot[], field: string, limit: number): string | null {
+  const last = docs[docs.length - 1]
+  return docs.length === limit && last ? `${last.data()[field]}_${last.id}` : null
+}
+
+function parsePageCursor(cursor: string | undefined | null): { value: number; id: string } | null {
+  if (!cursor) return null
+  const sep = cursor.indexOf('_')
+  if (sep < 1) return null
+  const value = Number(cursor.slice(0, sep))
+  const id = cursor.slice(sep + 1)
+  return Number.isFinite(value) && id ? { value, id } : null
+}
+
+export async function listReferrals(uid: string, limit = EARNINGS_PAGE, cursor?: string) {
+  let query = adminDb()
+    .collection('referrals')
+    .where('ownerUid', '==', uid)
+    .orderBy('createdAt', 'desc')
+    .orderBy('__name__', 'desc')
+    .limit(limit)
+  const after = parsePageCursor(cursor)
+  if (after) query = query.startAfter(after.value, after.id)
+  const snap = await query.get()
+  return {
+    referrals: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+    nextCursor: pageCursor(snap.docs, 'createdAt', limit),
+  }
+}
+
+export async function listPayouts(uid: string, limit = EARNINGS_PAGE, cursor?: string) {
+  let query = adminDb()
+    .collection('payouts')
+    .where('influencerUid', '==', uid)
+    .orderBy('paidAt', 'desc')
+    .orderBy('__name__', 'desc')
+    .limit(limit)
+  const after = parsePageCursor(cursor)
+  if (after) query = query.startAfter(after.value, after.id)
+  const snap = await query.get()
+  return {
+    payouts: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+    nextCursor: pageCursor(snap.docs, 'paidAt', limit),
+  }
+}
+
 export async function getEarnings(uid: string) {
   const db = adminDb()
   const referralsQuery = db.collection('referrals').where('ownerUid', '==', uid)
   const payoutsQuery = db.collection('payouts').where('influencerUid', '==', uid)
-  const [commAgg, paidAgg, refSnap, paySnap] = await Promise.all([
+  const [commAgg, paidAgg, refPage, payPage] = await Promise.all([
     referralsQuery.aggregate({ total: AggregateField.sum('commissionPaise') }).get(),
     payoutsQuery.aggregate({ total: AggregateField.sum('amountPaise') }).get(),
-    referralsQuery.orderBy('createdAt', 'desc').limit(100).get(),
-    payoutsQuery.orderBy('paidAt', 'desc').limit(100).get(),
+    listReferrals(uid),
+    listPayouts(uid),
   ])
   const totalCommissionPaise = trunc(commAgg.data().total)
   const paidPaise = trunc(paidAgg.data().total)
-  const referrals = refSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  const payouts = paySnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  return { totalCommissionPaise, paidPaise, balancePaise: totalCommissionPaise - paidPaise, referrals, payouts }
+  return {
+    totalCommissionPaise,
+    paidPaise,
+    balancePaise: totalCommissionPaise - paidPaise,
+    referrals: refPage.referrals,
+    referralsCursor: refPage.nextCursor,
+    payouts: payPage.payouts,
+    payoutsCursor: payPage.nextCursor,
+  }
 }
 
 export async function recordPayout(influencerUid: string, amountPaise: number, note: string, nowMillis: number): Promise<void> {

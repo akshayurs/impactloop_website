@@ -3,9 +3,14 @@ import { withAdmin } from '../_lib'
 
 export const runtime = 'nodejs'
 
+const PAGE_SIZE = 50
+
 export async function GET(req: Request): Promise<Response> {
   return withAdmin(req, async () => {
-    const snap = await adminDb().collection('influencers').limit(200).get()
+    const cursor = new URL(req.url).searchParams.get('cursor')
+    let query = adminDb().collection('influencers').orderBy('__name__').limit(PAGE_SIZE)
+    if (cursor) query = query.startAfter(cursor)
+    const snap = await query.get()
     const influencers: Array<{
       uid: string
       status: string
@@ -38,6 +43,7 @@ export async function GET(req: Request): Promise<Response> {
       })
     }
 
-    return Response.json({ influencers })
+    const last = snap.docs[snap.docs.length - 1]
+    return Response.json({ influencers, nextCursor: snap.docs.length === PAGE_SIZE && last ? last.id : null })
   })
 }

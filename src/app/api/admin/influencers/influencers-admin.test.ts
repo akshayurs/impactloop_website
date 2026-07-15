@@ -35,8 +35,11 @@ vi.mock('@/lib/server/firebase-admin', () => ({
   adminAuth: () => adminAuth(),
   adminDb: () => ({
     collection: () => ({
-      limit: () => ({
-        get: () => docsGet(),
+      orderBy: () => ({
+        limit: () => ({
+          get: () => docsGet(),
+          startAfter: () => ({ get: () => docsGet() }),
+        }),
       }),
     }),
   }),
