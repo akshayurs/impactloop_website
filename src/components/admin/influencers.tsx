@@ -24,6 +24,8 @@ type Plan = { id: string; appId: string; active: boolean }
 export function AdminInfluencers() {
   const { user } = useAuth()
   const [influencers, setInfluencers] = useState<InfluencerRow[] | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [sortBy, setSortBy] = useState<'applied-desc' | 'applied-asc' | 'email-asc'>('applied-desc')
   const [plans, setPlans] = useState<Plan[] | null>(null)
   const [error, setError] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -47,7 +49,8 @@ export function AdminInfluencers() {
     setError(false)
     setLoadMoreError(false)
     try {
-      const res = await adminFetch(user, '/api/admin/influencers')
+      const statusQ = statusFilter === 'all' ? '' : `?status=${statusFilter}`
+      const res = await adminFetch(user, `/api/admin/influencers${statusQ}`)
       if (!res.ok) throw new Error('failed')
       const data = await res.json()
       setInfluencers(data.influencers)
@@ -60,7 +63,7 @@ export function AdminInfluencers() {
     } catch {
       setError(true)
     }
-  }, [user])
+  }, [user, statusFilter])
 
   useEffect(() => {
     void load()
@@ -71,7 +74,8 @@ export function AdminInfluencers() {
     setLoadingMore(true)
     setLoadMoreError(false)
     try {
-      const res = await adminFetch(user, `/api/admin/influencers?cursor=${encodeURIComponent(nextCursor)}`)
+      const statusQ = statusFilter === 'all' ? '' : `&status=${statusFilter}`
+      const res = await adminFetch(user, `/api/admin/influencers?cursor=${encodeURIComponent(nextCursor)}${statusQ}`)
       if (!res.ok) throw new Error('failed')
       const data = await res.json()
       setInfluencers((prev) => {
@@ -186,8 +190,48 @@ export function AdminInfluencers() {
     setPayoutPending(false)
   }
 
+  const sorted = influencers
+    ? [...influencers].sort((a, b) => {
+        if (sortBy === 'applied-asc') return a.appliedAt - b.appliedAt
+        if (sortBy === 'email-asc') return (a.email ?? a.uid).localeCompare(b.email ?? b.uid)
+        return b.appliedAt - a.appliedAt
+      })
+    : null
+
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2" role="group" aria-label="Filter by status">
+          {(['all', 'pending', 'approved', 'rejected'] as const).map((sVal) => (
+            <button
+              key={sVal}
+              type="button"
+              aria-pressed={statusFilter === sVal}
+              onClick={() => setStatusFilter(sVal)}
+              className={`rounded-full border-2 px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-colors ${
+                statusFilter === sVal
+                  ? 'border-accent bg-accent text-accent-fg'
+                  : 'border-line text-muted hover:border-line-strong hover:text-fg'
+              }`}
+            >
+              {sVal}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="inf-sort" className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Sort</label>
+          <select
+            id="inf-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="h-9 rounded-lg border border-line bg-card px-2 text-sm text-fg"
+          >
+            <option value="applied-desc">Applied · newest</option>
+            <option value="applied-asc">Applied · oldest</option>
+            <option value="email-asc">Email · A–Z</option>
+          </select>
+        </div>
+      </div>
       {error ? (
         <p role="alert" className="text-sm text-red-500">
           Couldn't load influencers.
@@ -198,13 +242,15 @@ export function AdminInfluencers() {
             <div key={i} className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
           ))}
         </div>
-      ) : influencers.length === 0 ? (
+      ) : sorted!.length === 0 ? (
         <Card className="rounded-2xl border-2 border-line-strong text-center">
-          <p className="text-sm text-muted">No influencer applications yet.</p>
+          <p className="text-sm text-muted">
+            {statusFilter === 'all' ? 'No influencer applications yet.' : `No ${statusFilter} applications.`}
+          </p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {influencers.map((inf) => (
+          {sorted!.map((inf) => (
             <Card key={inf.uid} className="rounded-2xl border-2 border-line-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

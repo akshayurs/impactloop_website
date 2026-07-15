@@ -7,8 +7,13 @@ const PAGE_SIZE = 50
 
 export async function GET(req: Request): Promise<Response> {
   return withAdmin(req, async () => {
-    const cursor = new URL(req.url).searchParams.get('cursor')
+    const params = new URL(req.url).searchParams
+    const cursor = params.get('cursor')
+    const status = params.get('status')
     let query = adminDb().collection('influencers').orderBy('__name__').limit(PAGE_SIZE)
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+      query = query.where('status', '==', status)
+    }
     if (cursor) query = query.startAfter(cursor)
     const snap = await query.get()
     const influencers: Array<{

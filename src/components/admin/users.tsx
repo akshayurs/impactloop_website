@@ -17,6 +17,8 @@ export function AdminUsers() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<UserRow[] | null>(null)
+  const [adminsOnly, setAdminsOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'joined-desc' | 'joined-asc' | 'name-asc'>('joined-desc')
   const [error, setError] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -90,6 +92,16 @@ export function AdminUsers() {
     if (res.ok) await openDetail(uid)
   }
 
+  const visible = users
+    ? [...users]
+        .filter((u) => !adminsOnly || u.admin)
+        .sort((a, b) => {
+          if (sortBy === 'joined-asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          if (sortBy === 'name-asc') return (a.displayName ?? a.email ?? a.uid).localeCompare(b.displayName ?? b.email ?? b.uid)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        })
+    : null
+
   return (
     <div>
       <div className="flex items-end gap-3">
@@ -97,6 +109,26 @@ export function AdminUsers() {
           <Input label="Search users" placeholder="email, name, or uid" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()}>Search</Button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-muted">
+          <input type="checkbox" checked={adminsOnly} onChange={(e) => setAdminsOnly(e.target.checked)} />
+          Admins only
+        </label>
+        <div className="flex items-center gap-2">
+          <label htmlFor="users-sort" className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Sort</label>
+          <select
+            id="users-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="h-9 rounded-lg border border-line bg-card px-2 text-sm text-fg"
+          >
+            <option value="joined-desc">Joined · newest</option>
+            <option value="joined-asc">Joined · oldest</option>
+            <option value="name-asc">Name · A–Z</option>
+          </select>
+        </div>
       </div>
 
       {error ? (
@@ -107,13 +139,13 @@ export function AdminUsers() {
             <div key={i} className="skeleton h-16 rounded-2xl border-2 border-line-strong" />
           ))}
         </div>
-      ) : users.length === 0 ? (
+      ) : visible!.length === 0 ? (
         <Card className="mt-4 rounded-2xl border-2 border-line-strong text-center">
-          <p className="text-sm text-muted">No users match that search.</p>
+          <p className="text-sm text-muted">No users match that search{adminsOnly ? ' and filter' : ''}.</p>
         </Card>
       ) : (
         <div className="mt-4 space-y-3">
-          {users.map((u) => (
+          {visible!.map((u) => (
             <Card key={u.uid} className="rounded-2xl border-2 border-line-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
