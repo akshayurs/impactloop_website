@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { ConfirmModal } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { formatINR } from '@/lib/format'
+import { APPS } from '@/config/apps'
 import type { TierContent } from '@/config/tiers'
 import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin-fetch'
@@ -109,6 +110,8 @@ export function AdminPlans() {
             </ul>
           </Card>
         ) : null}
+
+        <AddTierCard existing={tiers} onCreated={load} />
       </div>
 
       <ConfirmModal
@@ -412,5 +415,101 @@ function AddDurationForm({
         Price is immutable after creation (Razorpay). Plan id will be {tier.appId}-{tier.tier}-…
       </p>
     </div>
+  )
+}
+
+function AddTierCard({ existing, onCreated }: { existing: TierContent[]; onCreated: () => Promise<void> }) {
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [appId, setAppId] = useState(APPS[0]?.id ?? '')
+  const [tier, setTier] = useState<'pro' | 'ai'>('pro')
+  const [creating, setCreating] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const taken = new Set(existing.map((t) => t.id))
+  const options = APPS.flatMap((a) =>
+    (['pro', 'ai'] as const).map((t) => ({ appId: a.id, tier: t, id: `${a.id}_${t}` })),
+  ).filter((o) => !taken.has(o.id))
+
+  async function create() {
+    if (!user) return
+    setCreating(true)
+    setMsg(null)
+    try {
+      const res = await adminFetch(user, '/api/admin/tiers', {
+        method: 'PUT',
+        body: JSON.stringify({
+          appId,
+          tier,
+          title: tier.toUpperCase(),
+          blurb: 'Edit this description.',
+          benefits: ['Edit these benefits'],
+          offerName: '',
+          compareLabel: 'vs Google Play',
+          highlight: false,
+          sort: existing.length + 1,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setMsg(res.ok ? 'Tier card created — edit it above.' : (data.error ?? 'Create failed.'))
+      if (res.ok) {
+        setOpen(false)
+        await onCreated()
+      }
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (options.length === 0) return null
+
+  if (!open) {
+    return (
+      <div>
+        <Button variant="outline" onClick={() => setOpen(true)}>+ Add tier card</Button>
+        {msg ? <p role="status" className="mt-2 font-mono text-xs uppercase tracking-[0.1em] text-muted">{msg}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <Card className="rounded-2xl border-2 border-dashed border-line-strong">
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">New tier card</p>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="flex w-40 flex-col gap-1.5">
+          <label htmlFor="new-tier-app" className="font-mono text-xs uppercase tracking-[0.14em] text-fg">App</label>
+          <select
+            id="new-tier-app"
+            value={appId}
+            onChange={(e) => setAppId(e.target.value)}
+            className="h-10 rounded-lg border border-line bg-card px-3 text-sm text-fg"
+          >
+            {[...new Set(options.map((o) => o.appId))].map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div className="flex w-32 flex-col gap-1.5">
+          <label htmlFor="new-tier-tier" className="font-mono text-xs uppercase tracking-[0.14em] text-fg">Tier</label>
+          <select
+            id="new-tier-tier"
+            value={tier}
+            onChange={(e) => setTier(e.target.value as 'pro' | 'ai')}
+            className="h-10 rounded-lg border border-line bg-card px-3 text-sm text-fg"
+          >
+            {options.filter((o) => o.appId === appId).map((o) => (
+              <option key={o.tier} value={o.tier}>{o.tier.toUpperCase()}</option>
+            ))}
+          </select>
+        </div>
+        <Button size="sm" disabled={creating || !options.some((o) => o.appId === appId && o.tier === tier)} onClick={() => void create()}>
+          {creating ? 'Creating…' : 'Create'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+      {msg ? <p role="status" className="mt-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">{msg}</p> : null}
+      <p className="mt-3 text-xs text-muted">
+        Creates the /pricing card with placeholder copy — edit content and add durations above. Tiers
+        are limited to PRO and AI (the app entitlements the backend understands).
+      </p>
+    </Card>
   )
 }
