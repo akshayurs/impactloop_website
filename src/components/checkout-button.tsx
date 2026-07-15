@@ -50,7 +50,7 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
       const base = {
         key: data.keyId,
         name: 'Impact Loop',
-        theme: { color: '#7c5cff' },
+        theme: { color: '#e05d10' },
       }
       if (data.mode === 'subscription') {
         new window.Razorpay!({
@@ -92,11 +92,18 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
 
   const label = !user ? 'Sign in to subscribe' : plan.lifetime ? 'Buy once' : 'Subscribe'
   return (
-    <div className="flex flex-col gap-2">
-      <PromoInput onApply={setPromoCode} durationMonths={plan.durationMonths} />
+    <div className="flex flex-col gap-3">
       <Button onClick={() => void startCheckout()} disabled={pending} className="w-full">
         {pending ? 'Starting…' : label}
       </Button>
+      <details className="group">
+        <summary className="cursor-pointer list-none text-xs text-muted underline-offset-2 hover:text-fg hover:underline [&::-webkit-details-marker]:hidden">
+          Have a promo code?
+        </summary>
+        <div className="mt-2">
+          <PromoInput onApply={setPromoCode} durationMonths={plan.durationMonths} />
+        </div>
+      </details>
       {error ? (
         <p role="alert" className="text-xs text-red-500">
           {error}

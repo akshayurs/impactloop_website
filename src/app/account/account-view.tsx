@@ -156,19 +156,34 @@ export function AccountView() {
   }
 
   if (loading || !user) {
-    return <p className="px-4 py-16 text-center text-muted">Loading…</p>
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-busy="true" aria-label="Loading account">
+        <div className="skeleton h-9 w-40 rounded-lg" />
+        <div className="skeleton mt-8 h-32 rounded-2xl" />
+        <div className="skeleton mt-6 h-40 rounded-2xl" />
+      </div>
+    )
   }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="font-display text-3xl font-bold text-fg">Account</h1>
+      <h1 className="font-display text-4xl font-bold text-fg">Account</h1>
 
       <Card className="mt-8">
-        <p className="text-sm text-muted">Signed in as</p>
-        <p className="mt-1 font-medium text-fg">{user.displayName ?? user.email}</p>
-        <p className="text-sm text-muted">{user.email}</p>
-        <div className="mt-6">
-          <Button variant="outline" size="sm" onClick={() => void signOut()}>
+        <div className="flex items-center gap-4">
+          {user.photoURL ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.photoURL} alt="" className="h-12 w-12 rounded-full border border-line" referrerPolicy="no-referrer" />
+          ) : (
+            <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft font-display text-lg font-semibold text-accent">
+              {(user.displayName ?? user.email ?? '?').charAt(0).toUpperCase()}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-medium text-fg">{user.displayName ?? user.email}</p>
+            <p className="truncate text-sm text-muted">{user.email}</p>
+          </div>
+          <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={() => void signOut()}>
             Sign out
           </Button>
         </div>
@@ -192,7 +207,7 @@ export function AccountView() {
           </div>
         </Card>
       ) : !summary ? (
-        <p className="mt-4 text-sm text-muted">Loading…</p>
+        <div className="skeleton mt-4 h-28 rounded-2xl" aria-label="Loading subscriptions" />
       ) : summary.apps.length === 0 ? (
         <Card className="mt-4">
           <p className="text-sm text-muted">No subscriptions yet.</p>

@@ -189,7 +189,7 @@ export function InfluencerPortal() {
         {influencer.promoCode ? (
           <div className="mt-4 space-y-3">
             <div className="flex items-center gap-2">
-              <code className="rounded bg-card px-3 py-2 font-mono text-sm font-medium text-fg">{influencer.promoCode}</code>
+              <code className="rounded-lg border border-line bg-bg-raised px-3 py-2 font-mono text-sm font-medium tracking-wider text-accent">{influencer.promoCode}</code>
               <Button variant="outline" size="sm" onClick={() => void copyShareLink()}>Copy link</Button>
             </div>
             {actionMsg ? <p role="status" className="text-xs text-muted">{actionMsg}</p> : null}
@@ -246,19 +246,27 @@ export function InfluencerPortal() {
       {earnings ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card className="p-4">
+            <Card className="border-accent/40 bg-accent-soft p-5">
               <p className="text-xs font-medium text-muted">Balance</p>
-              <p className="mt-2 text-lg font-semibold text-fg">{formatINR(earnings.balancePaise)}</p>
+              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.balancePaise)}</p>
             </Card>
-            <Card className="p-4">
+            <Card className="p-5">
               <p className="text-xs font-medium text-muted">Total earned</p>
-              <p className="mt-2 text-lg font-semibold text-fg">{formatINR(earnings.totalCommissionPaise)}</p>
+              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.totalCommissionPaise)}</p>
             </Card>
-            <Card className="p-4">
+            <Card className="p-5">
               <p className="text-xs font-medium text-muted">Paid out</p>
-              <p className="mt-2 text-lg font-semibold text-fg">{formatINR(earnings.paidPaise)}</p>
+              <p className="mt-2 font-display text-3xl font-bold text-fg">{formatINR(earnings.paidPaise)}</p>
             </Card>
           </div>
+
+          {earnings.referrals.length === 0 ? (
+            <Card className="text-center">
+              <p className="text-sm text-muted">
+                No referrals yet — share your link or code and they will show up here.
+              </p>
+            </Card>
+          ) : null}
 
           {earnings.referrals.length > 0 ? (
             <Card>

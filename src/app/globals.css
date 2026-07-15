@@ -2,36 +2,57 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Editorial brutalist system: ink + paper + ember, loop motif. */
 :root {
-  --bg: #fafafa;
-  --fg: #111114;
-  --muted: #5b5b66;
-  --card: #ffffff;
-  --line: #e5e5ea;
-  --accent: #7c5cff;
-  --accent-fg: #ffffff;
+  --bg: #f6f2ea;
+  --bg-raised: #efe9dd;
+  --fg: #17140f;
+  --muted: #6e675c;
+  --card: #fcfaf5;
+  --line: #e0d8c9;
+  --line-strong: #17140f;
+  --accent: #e8500a;
+  --accent-strong: #c74208;
+  --accent-fg: #fffdf8;
+  --accent-soft: rgba(232, 80, 10, 0.08);
+  --glow: rgba(232, 80, 10, 0.15);
+  --hero-spot: rgba(232, 80, 10, 0.07);
 }
 
 .dark {
-  --bg: #0b0b0f;
-  --fg: #f2f2f5;
-  --muted: #9b9ba6;
-  --card: #15151b;
-  --line: #26262e;
-  --accent: #8f75ff;
-  --accent-fg: #0b0b0f;
+  --bg: #121009;
+  --bg-raised: #181510;
+  --fg: #f2ead9;
+  --muted: #a89f8d;
+  --card: #1c1914;
+  --line: #2e2a21;
+  --line-strong: #f2ead9;
+  --accent: #ff6a1f;
+  --accent-strong: #ff8646;
+  --accent-fg: #171310;
+  --accent-soft: rgba(255, 106, 31, 0.1);
+  --glow: rgba(255, 106, 31, 0.18);
+  --hero-spot: rgba(255, 106, 31, 0.08);
 }
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-bg-raised: var(--bg-raised);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-card: var(--card);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-inter);
   --font-display: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+  --shadow-glow: 0 0 40px var(--glow);
+  --shadow-card: 0 1px 2px rgba(23, 20, 15, 0.04), 0 8px 24px -12px rgba(23, 20, 15, 0.1);
+  --shadow-card-hover: 4px 4px 0 0 var(--line-strong);
 }
 
 body {
@@ -42,6 +63,180 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* ————— Editorial elements ————— */
+
+/* Mono uppercase section label with a loop dot: "◌ 01 — PRACTICE" */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.kicker::before {
+  content: '';
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 9999px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  transform: rotate(-45deg);
+}
+
+/* Hand-drawn-feel loop underline for a highlighted word */
+.loop-underline {
+  position: relative;
+  white-space: nowrap;
+}
+.loop-underline::after {
+  content: '';
+  position: absolute;
+  left: -0.08em;
+  right: -0.08em;
+  bottom: 0.02em;
+  height: 0.28em;
+  border: 2.5px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-1.2deg);
+}
+
+/* ————— Loop motif ————— */
+
+/* Open ring (the logo mark, as decoration) */
+.loop-ring {
+  border-radius: 9999px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  transform: rotate(-45deg);
+}
+
+/* Slowly rotating dashed orbit for hero backdrops */
+.orbit {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px dashed var(--line-strong);
+  opacity: 0.25;
+  pointer-events: none;
+  animation: orbit-spin 60s linear infinite;
+}
+.orbit-reverse {
+  animation-direction: reverse;
+  animation-duration: 90s;
+}
+@keyframes orbit-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Radial spotlight behind heroes */
+.hero-spot {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--hero-spot), transparent 70%),
+    var(--bg);
+}
+
+/* Faint dot grid for section backdrops */
+.dot-grid {
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+}
+
+/* ————— Motion ————— */
+
+.fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fade-up-1 { animation-delay: 0.08s; }
+.fade-up-2 { animation-delay: 0.16s; }
+.fade-up-3 { animation-delay: 0.24s; }
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scroll-driven reveal — progressive enhancement, visible by default */
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: reveal-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+  .parallax-slow {
+    animation: parallax-drift linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes parallax-drift {
+  from { transform: translateY(40px); }
+  to { transform: translateY(-40px); }
+}
+
+/* Infinite marquee strip (duplicate content twice inside .marquee-track) */
+.marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 3rem;
+  animation: marquee 32s linear infinite;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Brutalist hover: hard offset shadow, no blur */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-lift:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--line-strong);
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+  background: linear-gradient(90deg, var(--bg-raised) 25%, var(--line) 50%, var(--bg-raised) 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes skeleton-pulse {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

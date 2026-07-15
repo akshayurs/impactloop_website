@@ -43,7 +43,15 @@ export function AdminOverview() {
       </Card>
     )
   }
-  if (!metrics) return <p className="text-sm text-muted">Loading…</p>
+  if (!metrics) {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" aria-busy="true" aria-label="Loading metrics">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="skeleton h-20 rounded-2xl" />
+        ))}
+      </div>
+    )
+  }
 
   const stats = [
     { label: 'Revenue', value: formatINR(metrics.totalRevenuePaise) },
@@ -57,7 +65,7 @@ export function AdminOverview() {
       {stats.map((s) => (
         <Card key={s.label} className="p-4">
           <p className="text-xs text-muted">{s.label}</p>
-          <p className="mt-1 text-xl font-bold text-fg">{s.value}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-fg">{s.value}</p>
         </Card>
       ))}
     </div>
