@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { docGet, docSet, collGet, listUsersFn, getUserFn, createPlan } = vi.hoisted(() => ({
+const { docGet, docSet, collGet, listUsersFn, getUserFn, createPlan, aggTotals } = vi.hoisted(() => ({
   docGet: vi.fn(),
   docSet: vi.fn(),
   collGet: vi.fn(),
   listUsersFn: vi.fn(),
   getUserFn: vi.fn(),
   createPlan: vi.fn(),
+  aggTotals: { referrals: 5000, payouts: 2000 } as Record<string, number>,
 }))
 vi.mock('./firebase-admin', () => {
   const query = (path: string): Record<string, unknown> => ({
@@ -14,6 +15,7 @@ vi.mock('./firebase-admin', () => {
     limit: () => query(path),
     startAfter: () => query(path),
     where: () => query(path),
+    aggregate: () => ({ get: () => Promise.resolve({ data: () => ({ total: aggTotals[path] ?? 0 }) }) }),
     get: () => collGet(path),
   })
   return {
@@ -27,6 +29,7 @@ vi.mock('./firebase-admin', () => {
   }
 })
 vi.mock('./razorpay', () => ({ createPlan }))
+vi.mock('firebase-admin/firestore', () => ({ AggregateField: { sum: (f: string) => f } }))
 
 import {
   createPlanWithRazorpay,
@@ -65,25 +68,53 @@ describe('listUsers', () => {
 
 describe('getMetrics', () => {
   beforeEach(() => vi.clearAllMocks())
-  it('aggregates revenue, payment count, user count, active subs, webhook events', async () => {
+  it('aggregates revenue windows, subs, influencers, partner balances', async () => {
+    const now = Date.now()
     collGet.mockImplementation((path: string) => {
       if (path === 'payments') {
-        const docs = [{ data: () => ({ amountPaise: 1000 }) }, { data: () => ({ amountPaise: 2500 }) }]
+        const docs = [
+          { id: 'p1', data: () => ({ amountPaise: 1000, createdAt: now - 1 * 86_400_000, planId: 'a', appId: 'crackloop', type: 'subscription' }) },
+          { id: 'p2', data: () => ({ amountPaise: 2500, createdAt: now - 20 * 86_400_000, planId: 'b', appId: 'crackloop', type: 'lifetime' }) },
+          { id: 'p3', data: () => ({ amountPaise: 4000, createdAt: now - 60 * 86_400_000, planId: 'c', appId: 'crackloop', type: 'subscription' }) },
+        ]
         return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
       }
-      if (path === 'razorpaySubscriptions') return Promise.resolve({ size: 4 })
-      if (path === 'webhookEvents') return Promise.resolve({ size: 7 })
+      if (path === 'webhookEvents') {
+        const docs = [{ data: () => ({ receivedAt: 111 }) }, { data: () => ({ receivedAt: 222 }) }]
+        return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
+      }
+      if (path === 'apps') {
+        const docs = [
+          { data: () => ({ subscription: { status: 'active', tier: 'pro' } }) },
+          { data: () => ({ subscription: { status: 'lifetime', tier: 'pro' } }) },
+          { data: () => ({ subscription: { status: 'trial', tier: 'pro' } }) },
+          { data: () => ({}) },
+        ]
+        return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
+      }
+      if (path === 'influencers') {
+        const docs = [{ data: () => ({ status: 'pending' }) }, { data: () => ({ status: 'approved' }) }]
+        return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
+      }
       return Promise.resolve({ size: 0, forEach: () => {} })
     })
-    listUsersFn.mockResolvedValue({ users: [{}, {}, {}] })
-    const metrics = await getMetrics()
-    expect(metrics).toEqual({
-      totalRevenuePaise: 3500,
-      paymentCount: 2,
-      userCount: 3,
-      activeSubscriptionCount: 4,
-      webhookEventCount: 7,
-    })
+    listUsersFn.mockResolvedValue({ users: [{ metadata: { creationTime: new Date(now - 86_400_000).toISOString() } }, { metadata: { creationTime: new Date(now - 30 * 86_400_000).toISOString() } }] })
+    const m = await getMetrics()
+    expect(m.totalRevenuePaise).toBe(7500)
+    expect(m.revenue30dPaise).toBe(3500)
+    expect(m.revenue7dPaise).toBe(1000)
+    expect(m.paymentCount).toBe(3)
+    expect(m.recentPayments[0].id).toBe('p1')
+    expect(m.userCount).toBe(2)
+    expect(m.newUsers7d).toBe(1)
+    expect(m.subsByStatus).toEqual({ active: 1, lifetime: 1, trial: 1 })
+    expect(m.subsByTier).toEqual({ pro: 2 })
+    expect(m.influencersByStatus).toEqual({ pending: 1, approved: 1 })
+    expect(m.commissionPaise).toBe(5000)
+    expect(m.paidOutPaise).toBe(2000)
+    expect(m.owedPaise).toBe(3000)
+    expect(m.webhookEventCount).toBe(2)
+    expect(m.lastWebhookAt).toBe(222)
   })
 })
 

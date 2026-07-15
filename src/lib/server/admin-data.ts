@@ -1,28 +1,90 @@
 import { revalidateTag } from 'next/cache'
+import { AggregateField } from 'firebase-admin/firestore'
 import type { StoredPlan } from '@/config/plans'
 import { adminAuth, adminDb } from './firebase-admin'
 import { PLANS_CACHE_TAG } from './plans-store'
 import { createPlan } from './razorpay'
 
+const DAY_MS = 86_400_000
+
 export async function getMetrics() {
   const db = adminDb()
-  const [paymentsSnap, subsSnap, eventsSnap, usersResult] = await Promise.all([
+  const now = Date.now()
+  const [paymentsSnap, eventsSnap, usersResult, appsSnap, infSnap] = await Promise.all([
     db.collectionGroup('payments').get(),
-    db.collection('razorpaySubscriptions').get(),
     db.collection('webhookEvents').get(),
     adminAuth().listUsers(1000),
+    db.collectionGroup('apps').get(),
+    db.collection('influencers').get(),
   ])
+
   let totalRevenuePaise = 0
+  let revenue30dPaise = 0
+  let revenue7dPaise = 0
+  const recentPayments: Array<{ id: string; amountPaise: number; planId: string | null; appId: string | null; type: string | null; createdAt: number }> = []
   paymentsSnap.forEach((d: any) => {
-    const amt = d.data().amountPaise
-    if (Number.isInteger(amt)) totalRevenuePaise += amt
+    const data = d.data()
+    const amt = data.amountPaise
+    if (!Number.isInteger(amt)) return
+    totalRevenuePaise += amt
+    const at = typeof data.createdAt === 'number' ? data.createdAt : 0
+    if (at > now - 30 * DAY_MS) revenue30dPaise += amt
+    if (at > now - 7 * DAY_MS) revenue7dPaise += amt
+    recentPayments.push({ id: d.id, amountPaise: amt, planId: data.planId ?? null, appId: data.appId ?? null, type: data.type ?? null, createdAt: at })
   })
+  recentPayments.sort((a, b) => b.createdAt - a.createdAt)
+
+  const newUsers7d = usersResult.users.filter((u) => {
+    const t = Date.parse(u.metadata.creationTime ?? '')
+    return Number.isFinite(t) && t > now - 7 * DAY_MS
+  }).length
+
+  const subsByStatus: Record<string, number> = {}
+  const subsByTier: Record<string, number> = {}
+  appsSnap.forEach((d: any) => {
+    const sub = d.data().subscription
+    if (!sub?.status) return
+    subsByStatus[sub.status] = (subsByStatus[sub.status] ?? 0) + 1
+    if (sub.tier && (sub.status === 'active' || sub.status === 'lifetime')) {
+      subsByTier[sub.tier] = (subsByTier[sub.tier] ?? 0) + 1
+    }
+  })
+
+  const influencersByStatus: Record<string, number> = {}
+  infSnap.forEach((d: any) => {
+    const status = d.data().status ?? 'unknown'
+    influencersByStatus[status] = (influencersByStatus[status] ?? 0) + 1
+  })
+
+  let lastWebhookAt = 0
+  eventsSnap.forEach((d: any) => {
+    const at = d.data().receivedAt
+    if (typeof at === 'number' && at > lastWebhookAt) lastWebhookAt = at
+  })
+
+  const [commAgg, paidAgg] = await Promise.all([
+    db.collection('referrals').aggregate({ total: AggregateField.sum('commissionPaise') }).get(),
+    db.collection('payouts').aggregate({ total: AggregateField.sum('amountPaise') }).get(),
+  ])
+  const commissionPaise = Math.trunc(commAgg.data().total ?? 0)
+  const paidOutPaise = Math.trunc(paidAgg.data().total ?? 0)
+
   return {
     totalRevenuePaise,
+    revenue30dPaise,
+    revenue7dPaise,
     paymentCount: paymentsSnap.size,
+    recentPayments: recentPayments.slice(0, 5),
     userCount: usersResult.users.length,
-    activeSubscriptionCount: subsSnap.size,
+    newUsers7d,
+    subsByStatus,
+    subsByTier,
+    influencersByStatus,
+    commissionPaise,
+    paidOutPaise,
+    owedPaise: commissionPaise - paidOutPaise,
     webhookEventCount: eventsSnap.size,
+    lastWebhookAt: lastWebhookAt || null,
   }
 }
 
