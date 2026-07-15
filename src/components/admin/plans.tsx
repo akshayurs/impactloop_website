@@ -105,28 +105,7 @@ export function AdminPlans() {
       ) : (
         <div className="space-y-3">
           {plans.map((p) => (
-            <Card key={p.id} className="rounded-2xl border-2 border-line-strong p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="flex items-center gap-2 font-display font-bold text-fg">
-                    {p.id} <Badge tone={p.active ? 'success' : 'warn'}>{p.active ? 'active' : 'inactive'}</Badge>
-                  </p>
-                  <p className="mt-1 font-mono text-xs uppercase tracking-[0.1em] text-muted">
-                    {p.appId} · {p.tier.toUpperCase()} · {p.lifetime ? 'Lifetime' : `${p.durationMonths}mo`} ·{' '}
-                    {formatINR(p.pricePaise)}
-                    {p.playStorePricePaise ? ` (Play ${formatINR(p.playStorePricePaise)})` : ''} · sort {p.sort}
-                    {p.razorpayPlanId ? '' : p.lifetime ? '' : ' · NOT SEEDED'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {p.active ? (
-                    <Button variant="outline" size="sm" onClick={() => setDeactivate(p.id)}>Deactivate</Button>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => void patch(p.id, { active: true })}>Activate</Button>
-                  )}
-                </div>
-              </div>
-            </Card>
+            <PlanRowCard key={p.id} plan={p} onPatch={patch} onDeactivate={() => setDeactivate(p.id)} />
           ))}
         </div>
       )}
@@ -181,5 +160,83 @@ export function AdminPlans() {
         onClose={() => setDeactivate(null)}
       />
     </div>
+  )
+}
+
+function PlanRowCard({
+  plan: p,
+  onPatch,
+  onDeactivate,
+}: {
+  plan: PlanRow
+  onPatch: (planId: string, body: Record<string, unknown>) => Promise<void>
+  onDeactivate: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [playRupees, setPlayRupees] = useState(p.playStorePricePaise !== null ? String(p.playStorePricePaise / 100) : '')
+  const [sort, setSort] = useState(String(p.sort))
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      await onPatch(p.id, {
+        playStorePricePaise: playRupees ? Math.round(Number(playRupees) * 100) : null,
+        sort: Number(sort),
+      })
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl border-2 border-line-strong p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 font-display font-bold text-fg">
+            {p.id} <Badge tone={p.active ? 'success' : 'warn'}>{p.active ? 'active' : 'inactive'}</Badge>
+          </p>
+          <p className="mt-1 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+            {p.appId} · {p.tier.toUpperCase()} · {p.lifetime ? 'Lifetime' : `${p.durationMonths}mo`} ·{' '}
+            {formatINR(p.pricePaise)}
+            {p.playStorePricePaise ? ` (Play ${formatINR(p.playStorePricePaise)})` : ''} · sort {p.sort}
+            {p.razorpayPlanId ? '' : p.lifetime ? '' : ' · NOT SEEDED'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Close' : 'Edit'}
+          </Button>
+          {p.active ? (
+            <Button variant="outline" size="sm" onClick={onDeactivate}>Deactivate</Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => void onPatch(p.id, { active: true })}>Activate</Button>
+          )}
+        </div>
+      </div>
+      {editing ? (
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
+          <div className="w-44">
+            <Input
+              label="Play Store price (₹)"
+              type="number"
+              min={0}
+              value={playRupees}
+              onChange={(e) => setPlayRupees(e.target.value)}
+            />
+          </div>
+          <div className="w-28">
+            <Input label="Sort" type="number" value={sort} onChange={(e) => setSort(e.target.value)} />
+          </div>
+          <Button size="sm" disabled={saving} onClick={() => void save()}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          <p className="w-full text-xs text-muted">
+            Web price is fixed by Razorpay — to change it, create a new plan and deactivate this one.
+          </p>
+        </div>
+      ) : null}
+    </Card>
   )
 }
