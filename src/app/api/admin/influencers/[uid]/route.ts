@@ -1,4 +1,5 @@
-import { decideInfluencer, getEarnings, recordPayout, updateInfluencerRates } from '@/lib/server/influencer'
+import { changePromoCode, decideInfluencer, getEarnings, recordPayout, updateInfluencerRates } from '@/lib/server/influencer'
+import { getSettings } from '@/lib/server/settings'
 import { withAdmin } from '../../_lib'
 
 export const runtime = 'nodejs'
@@ -27,6 +28,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ uid: st
           perPlan: body.perPlan,
         })
         return Response.json({ ok: true })
+      } catch (err) {
+        if (err instanceof Error) return Response.json({ error: err.message }, { status: 400 })
+        throw err
+      }
+    }
+
+    if (body.action === 'set-code') {
+      try {
+        const settings = await getSettings()
+        const result = await changePromoCode(uid, String(body.code ?? ''), Date.now(), settings.promoDefaultExpiryMonths)
+        return Response.json({ ok: true, ...result })
       } catch (err) {
         if (err instanceof Error) return Response.json({ error: err.message }, { status: 400 })
         throw err

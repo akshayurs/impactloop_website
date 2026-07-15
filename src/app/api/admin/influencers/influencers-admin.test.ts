@@ -6,6 +6,7 @@ const {
   updateInfluencerRates,
   recordPayout,
   getEarnings,
+  changePromoCode,
   adminAuth,
   docGet,
   docsGet,
@@ -15,6 +16,7 @@ const {
   updateInfluencerRates: vi.fn(),
   recordPayout: vi.fn(),
   getEarnings: vi.fn(),
+  changePromoCode: vi.fn(),
   adminAuth: vi.fn(),
   docGet: vi.fn(),
   docsGet: vi.fn(),
@@ -30,6 +32,10 @@ vi.mock('@/lib/server/influencer', () => ({
   updateInfluencerRates,
   recordPayout,
   getEarnings,
+  changePromoCode,
+}))
+vi.mock('@/lib/server/settings', () => ({
+  getSettings: vi.fn().mockResolvedValue({ freeTrialEnabled: true, trialDays: 7, promoDefaultExpiryMonths: 3 }),
 }))
 vi.mock('@/lib/server/firebase-admin', () => ({
   adminAuth: () => adminAuth(),
@@ -191,6 +197,14 @@ describe('POST /api/admin/influencers/[uid]', () => {
   })
 
   it('unknown action returns 400', async () => {
+    changePromoCode.mockResolvedValue({ code: 'NEWCODE10', expiresAt: 123 })
+    const okRes = await influencersPOST(
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'set-code', code: 'newcode10' }) }),
+      { params: Promise.resolve({ uid: 'inf1' }) },
+    )
+    expect(okRes.status).toBe(200)
+    expect(changePromoCode).toHaveBeenCalledWith('inf1', 'newcode10', expect.any(Number), 3)
+
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'nuke' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
     })

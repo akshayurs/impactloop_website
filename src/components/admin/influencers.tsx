@@ -43,6 +43,8 @@ export function AdminInfluencers() {
     perPlan: Record<string, string>
   } | null>(null)
   const [ratesPending, setRatesPending] = useState(false)
+  const [codeForm, setCodeForm] = useState('')
+  const [codePending, setCodePending] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -97,6 +99,7 @@ export function AdminInfluencers() {
     setEarnings(null)
     setPayoutForm({ amount: '', note: '' })
     setRatesForm(null)
+    setCodeForm('')
     const res = await adminFetch(user!, '/api/admin/influencers/' + uid, {
       method: 'POST',
       body: JSON.stringify({ action: 'earnings' }),
@@ -166,6 +169,23 @@ export function AdminInfluencers() {
       if (openUid === uid) await openDetail(uid)
     }
     setRatesPending(false)
+  }
+
+  async function submitCode(uid: string) {
+    if (!user || !codeForm.trim()) return
+    setCodePending(true)
+    setActionMsg(null)
+    const res = await adminFetch(user, `/api/admin/influencers/${uid}`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set-code', code: codeForm.trim().toUpperCase() }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setActionMsg(res.ok ? `Code set to ${data.code}.` : (data.error ?? 'Code change failed.'))
+    if (res.ok) {
+      setCodeForm('')
+      await load()
+    }
+    setCodePending(false)
   }
 
   async function submitPayout(uid: string) {
@@ -294,12 +314,46 @@ export function AdminInfluencers() {
                     <>
                       {!ratesForm ? (
                         <div>
-                          <p className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                          <p className="mb-1 font-mono text-xs uppercase tracking-[0.1em] text-muted">
                             Discount {inf.discountPct}% · Signup ₹{(inf.commissionRates.signupPaise / 100).toFixed(2)}
                           </p>
+                          <p className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                            Per-plan commission ·{' '}
+                            {Object.keys(inf.commissionRates.perPlan).length === 0
+                              ? 'none set'
+                              : Object.entries(inf.commissionRates.perPlan)
+                                  .map(([planId, paise]) => `${planId}: ₹${(paise / 100).toFixed(0)}`)
+                                  .join(' · ')}
+                          </p>
                           <Button size="sm" variant="outline" onClick={() => void startEditRates(inf)}>
-                            Edit rates
+                            Edit rates &amp; per-plan commission
                           </Button>
+                          <div className="mt-4 border-t border-line pt-4">
+                            <p className="mb-2 font-mono text-xs uppercase tracking-[0.1em] text-muted">
+                              Promo code ·{' '}
+                              {inf.promoCode ? (
+                                <span className="text-accent">{inf.promoCode}</span>
+                              ) : (
+                                'not set'
+                              )}
+                            </p>
+                            <div className="flex flex-wrap items-end gap-2">
+                              <div className="w-44">
+                                <Input
+                                  label={inf.promoCode ? 'New code' : 'Assign code'}
+                                  placeholder="e.g. NEHA20"
+                                  value={codeForm}
+                                  onChange={(e) => setCodeForm(e.target.value.toUpperCase())}
+                                />
+                              </div>
+                              <Button size="sm" disabled={codePending || !codeForm.trim()} onClick={() => void submitCode(inf.uid)}>
+                                {codePending ? 'Setting…' : inf.promoCode ? 'Change code' : 'Set code'}
+                              </Button>
+                            </div>
+                            <p className="mt-2 text-xs text-muted">
+                              Changing the code retires the old one immediately — links and codes already shared stop working.
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-3">
