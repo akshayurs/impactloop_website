@@ -17,7 +17,6 @@ export function AdminUsers() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<UserRow[] | null>(null)
-  const [adminsOnly, setAdminsOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'joined-desc' | 'joined-asc' | 'name-asc'>('joined-desc')
   const [error, setError] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -93,9 +92,7 @@ export function AdminUsers() {
   }
 
   const visible = users
-    ? [...users]
-        .filter((u) => !adminsOnly || u.admin)
-        .sort((a, b) => {
+    ? [...users].sort((a, b) => {
           if (sortBy === 'joined-asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           if (sortBy === 'name-asc') return (a.displayName ?? a.email ?? a.uid).localeCompare(b.displayName ?? b.email ?? b.uid)
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -111,11 +108,7 @@ export function AdminUsers() {
         <Button variant="outline" size="sm" onClick={() => void load()}>Search</Button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-muted">
-          <input type="checkbox" checked={adminsOnly} onChange={(e) => setAdminsOnly(e.target.checked)} />
-          Admins only
-        </label>
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <label htmlFor="users-sort" className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Sort</label>
           <select
@@ -141,7 +134,7 @@ export function AdminUsers() {
         </div>
       ) : visible!.length === 0 ? (
         <Card className="mt-4 rounded-2xl border-2 border-line-strong text-center">
-          <p className="text-sm text-muted">No users match that search{adminsOnly ? ' and filter' : ''}.</p>
+          <p className="text-sm text-muted">No users match that search.</p>
         </Card>
       ) : (
         <div className="mt-4 space-y-3">
