@@ -1,7 +1,8 @@
 export type Plan = {
   id: string
   appId: string
-  tier: 'pro' | 'ai'
+  /** Stable tier slug shared with the mobile app (e.g. 'pro', 'ai'). */
+  tier: string
   durationMonths: 1 | 3 | 6 | 12 | null
   lifetime: boolean
   pricePaise: number

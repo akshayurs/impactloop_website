@@ -14,7 +14,7 @@ describe('buildTrialEntitlement', () => {
       status: 'trial', planId: 'trial', tier: 'pro',
       expiryTimeMillis: 1_000_000 + 7 * 86_400_000, autoRenewing: false, razorpaySubscriptionId: null, source: 'web',
     })
-    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: false })
+    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: false, tier: 'pro' })
     expect(doc.trialUsed).toBe(true)
   })
 })

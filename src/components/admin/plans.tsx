@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin-fetch'
 
 type PlanRow = {
-  id: string; appId: string; tier: 'pro' | 'ai'; durationMonths: number | null; lifetime: boolean
+  id: string; appId: string; tier: string; durationMonths: number | null; lifetime: boolean
   pricePaise: number; playStorePricePaise: number | null; active: boolean; sort: number; razorpayPlanId: string | null
 }
 
@@ -422,14 +422,14 @@ function AddTierCard({ existing, onCreated }: { existing: TierContent[]; onCreat
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [appId, setAppId] = useState(APPS[0]?.id ?? '')
-  const [tier, setTier] = useState<'pro' | 'ai'>('pro')
+  const [tier, setTier] = useState('')
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
   const taken = new Set(existing.map((t) => t.id))
-  const options = APPS.flatMap((a) =>
-    (['pro', 'ai'] as const).map((t) => ({ appId: a.id, tier: t, id: `${a.id}_${t}` })),
-  ).filter((o) => !taken.has(o.id))
+  const slug = tier.trim().toLowerCase()
+  const validSlug = /^[a-z0-9-]{2,20}$/.test(slug)
+  const isTaken = taken.has(`${appId}_${slug}`)
 
   async function create() {
     if (!user) return
@@ -440,8 +440,8 @@ function AddTierCard({ existing, onCreated }: { existing: TierContent[]; onCreat
         method: 'PUT',
         body: JSON.stringify({
           appId,
-          tier,
-          title: tier.toUpperCase(),
+          tier: slug,
+          title: slug.toUpperCase(),
           blurb: 'Edit this description.',
           benefits: ['Edit these benefits'],
           offerName: '',
@@ -454,14 +454,13 @@ function AddTierCard({ existing, onCreated }: { existing: TierContent[]; onCreat
       setMsg(res.ok ? 'Tier card created — edit it above.' : (data.error ?? 'Create failed.'))
       if (res.ok) {
         setOpen(false)
+        setTier('')
         await onCreated()
       }
     } finally {
       setCreating(false)
     }
   }
-
-  if (options.length === 0) return null
 
   if (!open) {
     return (
@@ -484,31 +483,28 @@ function AddTierCard({ existing, onCreated }: { existing: TierContent[]; onCreat
             onChange={(e) => setAppId(e.target.value)}
             className="h-10 rounded-lg border border-line bg-card px-3 text-sm text-fg"
           >
-            {[...new Set(options.map((o) => o.appId))].map((a) => <option key={a} value={a}>{a}</option>)}
+            {APPS.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
           </select>
         </div>
-        <div className="flex w-32 flex-col gap-1.5">
-          <label htmlFor="new-tier-tier" className="font-mono text-xs uppercase tracking-[0.14em] text-fg">Tier</label>
-          <select
-            id="new-tier-tier"
+        <div className="w-44">
+          <Input
+            label="Tier id (slug)"
+            placeholder="pro, ai, premium…"
             value={tier}
-            onChange={(e) => setTier(e.target.value as 'pro' | 'ai')}
-            className="h-10 rounded-lg border border-line bg-card px-3 text-sm text-fg"
-          >
-            {options.filter((o) => o.appId === appId).map((o) => (
-              <option key={o.tier} value={o.tier}>{o.tier.toUpperCase()}</option>
-            ))}
-          </select>
+            onChange={(e) => setTier(e.target.value)}
+            error={tier && !validSlug ? 'a-z, 0-9, dashes (2-20 chars)' : tier && isTaken ? 'already exists' : undefined}
+          />
         </div>
-        <Button size="sm" disabled={creating || !options.some((o) => o.appId === appId && o.tier === tier)} onClick={() => void create()}>
+        <Button size="sm" disabled={creating || !validSlug || isTaken} onClick={() => void create()}>
           {creating ? 'Creating…' : 'Create'}
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
       </div>
       {msg ? <p role="status" className="mt-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">{msg}</p> : null}
       <p className="mt-3 text-xs text-muted">
-        Creates the /pricing card with placeholder copy — edit content and add durations above. Tiers
-        are limited to PRO and AI (the app entitlements the backend understands).
+        The tier id is the stable key your app reads from entitlements (subscription.tier). Built-in
+        behavior: any paid tier = ad-free; the &lsquo;ai&rsquo; tier also unlocks unlimited AI. New tier ids are
+        delivered to the app as-is — gate features on them in the app&rsquo;s flavor config.
       </p>
     </Card>
   )

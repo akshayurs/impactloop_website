@@ -23,11 +23,11 @@ export async function listAllTiers(): Promise<TierContent[]> {
   return snap.docs.map((d) => d.data() as TierContent).sort((a, b) => a.sort - b.sort)
 }
 
-const TIER_ID_RE = /^[a-z0-9-]{2,30}_(pro|ai)$/
+const TIER_ID_RE = /^[a-z0-9-]{2,30}_[a-z0-9-]{2,20}$/
 
-export async function upsertTier(input: Partial<TierContent> & { appId: string; tier: 'pro' | 'ai' }): Promise<TierContent> {
+export async function upsertTier(input: Partial<TierContent> & { appId: string; tier: string }): Promise<TierContent> {
   const id = `${input.appId}_${input.tier}`
-  if (!TIER_ID_RE.test(id)) throw new Error('appId must be a slug and tier must be pro|ai')
+  if (!TIER_ID_RE.test(id)) throw new Error('appId and tier must be slugs (a-z, 0-9, dashes)')
   if (typeof input.title !== 'string' || !input.title.trim() || input.title.length > 40) {
     throw new Error('title required (max 40 chars)')
   }

@@ -84,7 +84,7 @@ describe('POST /api/razorpay/webhook', () => {
     expect(res.status).toBe(200)
     expect(writeEntitlement).toHaveBeenCalledWith('u1', 'crackloop', expect.objectContaining({
       subscription: expect.objectContaining({ status: 'active', expiryTimeMillis: 1750000000000, razorpaySubscriptionId: 'sub_1' }),
-      entitlements: { adFree: true, unlimitedAi: false },
+      entitlements: { adFree: true, unlimitedAi: false, tier: 'pro' },
     }))
     expect(docSet).toHaveBeenCalledWith('users/u1/payments/pay_1', expect.objectContaining({ amountPaise: 7900, type: 'subscription' }), { merge: true })
     const setPaths = docSet.mock.calls.map((c) => c[0])
@@ -95,7 +95,7 @@ describe('POST /api/razorpay/webhook', () => {
     const halted = { ...CHARGED, event: 'subscription.halted', payload: { subscription: { entity: { id: 'sub_1', status: 'halted', current_end: 1750000000 } } } }
     await POST(signed(halted, 'evt_2'))
     expect(writeEntitlement).toHaveBeenCalledWith('u1', 'crackloop', expect.objectContaining({
-      entitlements: { adFree: false, unlimitedAi: false },
+      entitlements: { adFree: false, unlimitedAi: false, tier: null },
     }))
   })
 

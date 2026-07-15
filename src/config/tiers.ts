@@ -3,7 +3,8 @@
 export type TierContent = {
   id: string
   appId: string
-  tier: 'pro' | 'ai'
+  /** Stable tier slug shared with the mobile app (e.g. 'pro', 'ai'). */
+  tier: string
   title: string
   blurb: string
   benefits: string[]

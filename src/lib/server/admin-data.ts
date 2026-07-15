@@ -1,5 +1,7 @@
+import { revalidateTag } from 'next/cache'
 import type { StoredPlan } from '@/config/plans'
 import { adminAuth, adminDb } from './firebase-admin'
+import { PLANS_CACHE_TAG } from './plans-store'
 import { createPlan } from './razorpay'
 
 export async function getMetrics() {
@@ -66,7 +68,7 @@ export async function revokeEntitlement(uid: string, appId: string): Promise<voi
     .set(
       {
         subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null },
-        entitlements: { adFree: false, unlimitedAi: false },
+        entitlements: { adFree: false, unlimitedAi: false, tier: null },
       },
       { merge: true },
     )
@@ -77,7 +79,7 @@ const PLAN_ID_RE = /^[a-z0-9-]{3,40}$/
 export async function createPlanWithRazorpay(input: {
   id: string
   appId: string
-  tier: 'pro' | 'ai'
+  tier: string
   durationMonths: 1 | 3 | 6 | 12 | null
   lifetime: boolean
   pricePaise: number
@@ -85,7 +87,7 @@ export async function createPlanWithRazorpay(input: {
   sort: number
 }): Promise<StoredPlan> {
   if (!PLAN_ID_RE.test(input.id)) throw new Error('id must be a slug: [a-z0-9-]{3,40}')
-  if (!['pro', 'ai'].includes(input.tier)) throw new Error('tier must be "pro" or "ai"')
+  if (!/^[a-z0-9-]{2,20}$/.test(input.tier)) throw new Error('tier must be a slug (a-z, 0-9, dashes)')
   if (![1, 3, 6, 12, null].includes(input.durationMonths)) throw new Error('durationMonths must be 1, 3, 6, 12, or null')
   if (!Number.isInteger(input.pricePaise) || input.pricePaise <= 0) throw new Error('price must be positive integer paise')
   if (input.lifetime !== (input.durationMonths === null)) throw new Error('lifetime plans must have null duration (and vice versa)')
@@ -116,6 +118,7 @@ export async function createPlanWithRazorpay(input: {
     active: true,
   }
   await ref.set(plan)
+  revalidateTag(PLANS_CACHE_TAG)
   return plan
 }
 
@@ -129,6 +132,7 @@ export async function updatePlanFields(
     if (!MUTABLE_PLAN_FIELDS.has(key)) throw new Error(`field ${key} is immutable or unknown`)
   }
   await adminDb().doc(`plans/${planId}`).set(patch, { merge: true })
+  revalidateTag(PLANS_CACHE_TAG)
 }
 
 /* Cursor format shared by paginated Firestore lists: "<orderValue>_<docId>". */

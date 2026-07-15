@@ -15,7 +15,7 @@ type Summary = {
     subscription: {
       status: string
       planId: string
-      tier: 'pro' | 'ai'
+      tier: string
       expiryTimeMillis: number | null
       autoRenewing: boolean
       razorpaySubscriptionId: string | null
@@ -28,7 +28,10 @@ type Summary = {
 
 type Payment = Summary['payments'][number]
 
-const TIER_LABEL = { pro: 'Pro', ai: 'AI' } as const
+const TIER_LABEL: Record<string, string> = { pro: 'Pro', ai: 'AI' }
+function tierLabel(tier: string): string {
+  return TIER_LABEL[tier] ?? tier.toUpperCase()
+}
 
 export function AccountView() {
   const { user, loading, signOut } = useAuth()
@@ -189,6 +192,12 @@ export function AccountView() {
     }
   }
 
+  function firstPaymentDate(appId: string): string | null {
+    const forApp = payments.filter((p) => p.appId === appId)
+    if (forApp.length === 0) return null
+    return new Date(Math.min(...forApp.map((p) => p.createdAt))).toLocaleDateString()
+  }
+
   if (loading || !user) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-busy="true" aria-label="Loading account">
@@ -273,18 +282,34 @@ export function AccountView() {
             </div>
             {subscription ? (
               <>
-                <p className="mt-3 font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                  {subscription.status === 'trial' ? (
-                    `Trial ends ${new Date(subscription.expiryTimeMillis!).toLocaleDateString()}`
-                  ) : (
-                    <>
-                      {TIER_LABEL[subscription.tier]} ·{' '}
+                <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                  <div>
+                    <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Plan</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">
+                      {subscription.status === 'trial' ? 'Free trial' : tierLabel(subscription.tier)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+                      {subscription.expiryTimeMillis === null ? 'Access' : subscription.autoRenewing ? 'Renews' : 'Ends'}
+                    </dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">
                       {subscription.expiryTimeMillis === null
                         ? 'Lifetime'
-                        : `${subscription.autoRenewing ? 'Renews' : 'Ends'} ${new Date(subscription.expiryTimeMillis).toLocaleDateString()}`}
-                    </>
-                  )}
-                </p>
+                        : new Date(subscription.expiryTimeMillis).toLocaleDateString()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Purchased</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{firstPaymentDate(appId) ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Plan id</dt>
+                    <dd className="mt-0.5 truncate font-mono text-xs text-muted" title={subscription.planId}>
+                      {subscription.planId}
+                    </dd>
+                  </div>
+                </dl>
                 {subscription.autoRenewing && subscription.razorpaySubscriptionId ? (
                   <div className="mt-4">
                     <Button variant="outline" size="sm" onClick={() => setCancelApp(appId)}>

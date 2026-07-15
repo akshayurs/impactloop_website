@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { ConfirmModal } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { formatINR } from '@/lib/format'
+import { APPS } from '@/config/apps'
 import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin-fetch'
 
@@ -23,6 +24,7 @@ export function AdminUsers() {
   const [openUid, setOpenUid] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [trialDays, setTrialDays] = useState(7)
+  const [trialApp, setTrialApp] = useState(APPS[0]?.id ?? 'crackloop')
   const [revokeTarget, setRevokeTarget] = useState<{ uid: string; appId: string } | null>(null)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
 
@@ -136,31 +138,90 @@ export function AdminUsers() {
                     <>
                       {detail.apps.length === 0 ? <p className="text-sm text-muted">No app entitlements.</p> : null}
                       {detail.apps.map(({ appId, data }) => (
-                        <div key={appId} className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm text-fg">
-                            <span className="font-mono text-xs uppercase tracking-[0.1em] text-fg">{appId}</span>{' '}
-                            <span className="text-muted">
-                              {data.subscription
-                                ? `${data.subscription.status} · ${data.subscription.tier ?? ''} · ${
-                                    data.subscription.expiryTimeMillis === null
-                                      ? 'lifetime'
-                                      : new Date(data.subscription.expiryTimeMillis).toLocaleDateString()
-                                  }`
-                                : 'no subscription'}
-                              {data.trialUsed ? ' · trial used' : ''}
-                            </span>
-                          </p>
-                          <Button variant="outline" size="sm" onClick={() => setRevokeTarget({ uid: u.uid, appId })}>
-                            Revoke
-                          </Button>
+                        <div key={appId} className="mt-3 rounded-xl border border-line p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.1em] text-fg">
+                              {appId}
+                              {data.subscription ? (
+                                <Badge
+                                  tone={
+                                    data.subscription.status === 'active' || data.subscription.status === 'lifetime'
+                                      ? 'success'
+                                      : data.subscription.status === 'trial'
+                                        ? 'default'
+                                        : 'warn'
+                                  }
+                                >
+                                  {data.subscription.status}
+                                </Badge>
+                              ) : (
+                                <Badge tone="warn">no subscription</Badge>
+                              )}
+                              {data.trialUsed ? <Badge>trial used</Badge> : null}
+                            </p>
+                            <Button variant="outline" size="sm" onClick={() => setRevokeTarget({ uid: u.uid, appId })}>
+                              Revoke
+                            </Button>
+                          </div>
+                          {data.subscription ? (
+                            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+                              <div>
+                                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Plan id</dt>
+                                <dd className="mt-0.5 truncate font-mono text-xs text-fg" title={data.subscription.planId}>
+                                  {data.subscription.planId ?? '—'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Tier</dt>
+                                <dd className="mt-0.5 text-sm text-fg">{data.subscription.tier ?? '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+                                  {data.subscription.expiryTimeMillis === null
+                                    ? 'Access'
+                                    : data.subscription.autoRenewing
+                                      ? 'Renews'
+                                      : 'Expires'}
+                                </dt>
+                                <dd className="mt-0.5 text-sm text-fg">
+                                  {data.subscription.expiryTimeMillis === null
+                                    ? 'Lifetime'
+                                    : new Date(data.subscription.expiryTimeMillis).toLocaleString()}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Auto-renew</dt>
+                                <dd className="mt-0.5 text-sm text-fg">{data.subscription.autoRenewing ? 'On' : 'Off'}</dd>
+                              </div>
+                              <div>
+                                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Last verified</dt>
+                                <dd className="mt-0.5 text-sm text-fg">
+                                  {data.subscription.lastVerifiedAt
+                                    ? new Date(data.subscription.lastVerifiedAt).toLocaleString()
+                                    : '—'}
+                                </dd>
+                              </div>
+                            </dl>
+                          ) : null}
                         </div>
                       ))}
                       <div className="mt-4 flex flex-wrap items-end gap-3">
+                        <div className="flex w-36 flex-col gap-1.5">
+                          <label htmlFor={`trial-app-${u.uid}`} className="font-mono text-xs uppercase tracking-[0.14em] text-fg">App</label>
+                          <select
+                            id={`trial-app-${u.uid}`}
+                            value={trialApp}
+                            onChange={(e) => setTrialApp(e.target.value)}
+                            className="h-10 rounded-lg border border-line bg-card px-3 text-sm text-fg"
+                          >
+                            {APPS.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
+                          </select>
+                        </div>
                         <div className="w-32">
                           <Input label="Trial days" type="number" min={1} max={365} value={trialDays} onChange={(e) => setTrialDays(Number(e.target.value))} />
                         </div>
-                        <Button size="sm" onClick={() => void act(u.uid, 'crackloop', 'grant-trial')}>
-                          Grant trial (crackloop)
+                        <Button size="sm" onClick={() => void act(u.uid, trialApp, 'grant-trial')}>
+                          Grant trial
                         </Button>
                       </div>
                       {detail.payments.length > 0 ? (

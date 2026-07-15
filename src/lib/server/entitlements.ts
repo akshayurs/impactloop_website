@@ -7,22 +7,29 @@ export function isLiveStatus(status: string): boolean {
   return (ACTIVE_SUB_STATUSES as readonly string[]).includes(status)
 }
 
-export function grantsForTier(tier: 'pro' | 'ai'): { adFree: boolean; unlimitedAi: boolean } {
-  return tier === 'ai' ? { adFree: true, unlimitedAi: true } : { adFree: true, unlimitedAi: false }
+/* Tier ids are stable slugs shared with the mobile app (e.g. 'pro', 'ai', future tiers).
+   `entitlements.tier` carries the slug so app builds can gate features per tier; the
+   boolean flags stay for backward compatibility with builds that only know adFree/unlimitedAi. */
+export type Grants = { adFree: boolean; unlimitedAi: boolean; tier: string | null }
+
+export function grantsForTier(tier: string): Grants {
+  return { adFree: true, unlimitedAi: tier === 'ai', tier }
 }
+
+export const NO_GRANTS: Grants = { adFree: false, unlimitedAi: false, tier: null }
 
 export type EntitlementDoc = {
   subscription: {
     status: string
     planId: string
-    tier: 'pro' | 'ai'
+    tier: string
     expiryTimeMillis: number | null
     autoRenewing: boolean
     razorpaySubscriptionId: string | null
     source: 'web'
     lastVerifiedAt: number
   }
-  entitlements: { adFree: boolean; unlimitedAi: boolean }
+  entitlements: Grants
 }
 
 export function buildSubscriptionEntitlement(input: {
@@ -44,7 +51,7 @@ export function buildSubscriptionEntitlement(input: {
       source: 'web',
       lastVerifiedAt: input.nowMillis,
     },
-    entitlements: live ? grantsForTier(input.plan.tier) : { adFree: false, unlimitedAi: false },
+    entitlements: live ? grantsForTier(input.plan.tier) : NO_GRANTS,
   }
 }
 

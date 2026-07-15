@@ -118,7 +118,7 @@ describe('revokeEntitlement', () => {
     await revokeEntitlement('u1', 'crackloop')
     expect(docSet).toHaveBeenCalledWith(
       'users/u1/apps/crackloop',
-      { subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null }, entitlements: { adFree: false, unlimitedAi: false } },
+      { subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null }, entitlements: { adFree: false, unlimitedAi: false, tier: null } },
       { merge: true },
     )
   })
@@ -154,7 +154,7 @@ describe('createPlanWithRazorpay', () => {
   })
 
   it('rejects invalid tier', async () => {
-    await expect(createPlanWithRazorpay({ ...base, tier: 'gold' as never })).rejects.toThrow(/tier/)
+    await expect(createPlanWithRazorpay({ ...base, tier: 'Bad Tier!' })).rejects.toThrow(/tier/)
   })
 
   it('rejects invalid durationMonths', async () => {

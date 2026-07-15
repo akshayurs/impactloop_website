@@ -24,8 +24,8 @@ const lifetimePlan: Plan = { ...proPlan, id: 'crackloop-pro-life', durationMonth
 
 describe('grantsForTier', () => {
   it('pro: adFree only; ai: both', () => {
-    expect(grantsForTier('pro')).toEqual({ adFree: true, unlimitedAi: false })
-    expect(grantsForTier('ai')).toEqual({ adFree: true, unlimitedAi: true })
+    expect(grantsForTier('pro')).toEqual({ adFree: true, unlimitedAi: false, tier: 'pro' })
+    expect(grantsForTier('ai')).toEqual({ adFree: true, unlimitedAi: true, tier: 'ai' })
   })
 })
 
@@ -48,13 +48,13 @@ describe('buildSubscriptionEntitlement', () => {
       status: 'active', planId: 'crackloop-ai-1m', tier: 'ai', expiryTimeMillis: 1750000000000,
       autoRenewing: true, razorpaySubscriptionId: 'sub_1', source: 'web', lastVerifiedAt: 1749000000000,
     })
-    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: true })
+    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: true, tier: 'ai' })
   })
   it('non-live status revokes grants but keeps record', () => {
     const doc = buildSubscriptionEntitlement({
       plan: proPlan, status: 'halted', currentEndMillis: 1750000000000, razorpaySubscriptionId: 'sub_1', nowMillis: 1749000000000,
     })
-    expect(doc.entitlements).toEqual({ adFree: false, unlimitedAi: false })
+    expect(doc.entitlements).toEqual({ adFree: false, unlimitedAi: false, tier: null })
     expect(doc.subscription.autoRenewing).toBe(false)
   })
 })
@@ -63,7 +63,7 @@ describe('buildLifetimeEntitlement', () => {
   it('grants forever with null expiry', () => {
     const doc = buildLifetimeEntitlement({ plan: lifetimePlan, nowMillis: 1749000000000 })
     expect(doc.subscription).toMatchObject({ status: 'lifetime', expiryTimeMillis: null, autoRenewing: false, razorpaySubscriptionId: null })
-    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: false })
+    expect(doc.entitlements).toEqual({ adFree: true, unlimitedAi: false, tier: 'pro' })
   })
 })
 

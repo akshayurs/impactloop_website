@@ -1,5 +1,8 @@
+import { unstable_cache } from 'next/cache'
 import { STATIC_PLANS, type StoredPlan } from '@/config/plans'
 import { adminDb } from './firebase-admin'
+
+export const PLANS_CACHE_TAG = 'plans'
 
 function staticFallback(appId?: string): StoredPlan[] {
   return STATIC_PLANS.filter((p) => (appId ? p.appId === appId : true) && p.active)
@@ -7,7 +10,7 @@ function staticFallback(appId?: string): StoredPlan[] {
     .map((p) => ({ ...p, razorpayPlanId: null }))
 }
 
-export async function getPlansFromDb(appId: string): Promise<StoredPlan[]> {
+async function readPlansFromDb(appId: string): Promise<StoredPlan[]> {
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) return staticFallback(appId)
   try {
     const snap = await adminDb()
@@ -23,7 +26,7 @@ export async function getPlansFromDb(appId: string): Promise<StoredPlan[]> {
   }
 }
 
-export async function getPlanById(planId: string): Promise<StoredPlan | null> {
+async function readPlanById(planId: string): Promise<StoredPlan | null> {
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     return staticFallback().find((p) => p.id === planId) ?? null
   }
@@ -35,3 +38,15 @@ export async function getPlanById(planId: string): Promise<StoredPlan | null> {
     return staticFallback().find((p) => p.id === planId) ?? null
   }
 }
+
+// Plans change only on admin edits, which call revalidateTag(PLANS_CACHE_TAG).
+// The revalidate window is a safety net for any missed invalidation.
+export const getPlansFromDb = unstable_cache(readPlansFromDb, ['plans-by-app'], {
+  tags: [PLANS_CACHE_TAG],
+  revalidate: 3600,
+})
+
+export const getPlanById = unstable_cache(readPlanById, ['plan-by-id'], {
+  tags: [PLANS_CACHE_TAG],
+  revalidate: 3600,
+})
