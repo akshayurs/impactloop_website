@@ -17,22 +17,22 @@ async function maybeRecordCommission(params: {
   promoOwnerUid?: string | null
   planId: string
   referredUid: string
-  paymentId: string
+  referralId: string
   type: 'subscription' | 'lifetime'
   nowMillis: number
 }): Promise<void> {
-  const { promoCode, promoOwnerUid, planId, referredUid, paymentId, type, nowMillis } = params
+  const { promoCode, promoOwnerUid, planId, referredUid, referralId, type, nowMillis } = params
   if (!promoCode || !promoOwnerUid) return
   if (promoOwnerUid === referredUid) return
   const owner = await getInfluencer(promoOwnerUid)
   if (!owner || owner.status !== 'approved') {
-    console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, paymentId })
+    console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, referralId })
     return
   }
   const commissionPaise = commissionForPlan(owner.commissionRates, planId)
   if (commissionPaise <= 0) return
   await recordReferral({
-    id: `pay-${paymentId}`,
+    id: referralId,
     code: promoCode,
     ownerUid: promoOwnerUid,
     referredUid,
@@ -112,7 +112,7 @@ export async function POST(req: Request): Promise<Response> {
           promoOwnerUid: ctx.promoOwnerUid,
           planId: ctx.planId,
           referredUid: ctx.uid,
-          paymentId: effect.paymentId,
+          referralId: `sub-${effect.subscriptionId}`,
           type: 'subscription',
           nowMillis: now,
         })
@@ -134,7 +134,7 @@ export async function POST(req: Request): Promise<Response> {
             promoOwnerUid: order.promoOwnerUid,
             planId: order.planId,
             referredUid: order.uid,
-            paymentId: effect.paymentId,
+            referralId: `pay-${effect.paymentId}`,
             type: 'lifetime',
             nowMillis: now,
           })

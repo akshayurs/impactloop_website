@@ -159,7 +159,7 @@ describe('POST /api/razorpay/webhook', () => {
     })
     await POST(signed(CHARGED, 'evt_7'))
     expect(recordReferral).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'pay-pay_1', type: 'subscription', ownerUid: 'inf1', referredUid: 'u1', commissionPaise: 1500,
+      id: 'sub-sub_1', type: 'subscription', ownerUid: 'inf1', referredUid: 'u1', commissionPaise: 1500,
     }))
   })
 
