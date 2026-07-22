@@ -8,6 +8,7 @@ export type WebhookEffect =
       amountPaise: number | null
     }
   | { kind: 'order-paid'; orderId: string; paymentId: string; amountPaise: number }
+  | { kind: 'refund'; paymentId: string; amountPaise: number | null }
   | { kind: 'ignore'; reason: string }
 
 const SUBSCRIPTION_EVENTS = new Set([
@@ -45,6 +46,12 @@ export function mapWebhookEvent(body: any): WebhookEffect {
     }
     return { kind: 'order-paid', orderId: order.id, paymentId: payment.id, amountPaise: payment.amount }
   }
+  if (event === 'refund.created' || event === 'refund.processed') {
+    const refund = body?.payload?.refund?.entity
+    const paymentId = refund?.payment_id ?? body?.payload?.payment?.entity?.id
+    if (!paymentId) return { kind: 'ignore', reason: `malformed ${event} payload` }
+    return { kind: 'refund', paymentId: String(paymentId), amountPaise: typeof refund?.amount === 'number' ? refund.amount : null }
+  }
   return { kind: 'ignore', reason: `unhandled event ${event}` }
 }
 
@@ -53,7 +60,8 @@ export function idempotencyKeyFor(body: any, headerEventId: string | null): stri
   const event = body?.event ?? 'unknown'
   const sub = body?.payload?.subscription?.entity
   const order = body?.payload?.order?.entity
-  const entityId = sub?.id ?? order?.id ?? 'none'
-  const suffix = sub?.current_end ?? body?.payload?.payment?.entity?.id ?? ''
+  const refund = body?.payload?.refund?.entity
+  const entityId = sub?.id ?? order?.id ?? refund?.id ?? 'none'
+  const suffix = sub?.current_end ?? refund?.id ?? body?.payload?.payment?.entity?.id ?? ''
   return `${event}:${entityId}:${suffix}`
 }

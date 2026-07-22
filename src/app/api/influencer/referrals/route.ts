@@ -1,4 +1,5 @@
-import { getInfluencer, listReferrals } from '@/lib/server/influencer'
+import { listReferrals } from '@/lib/server/influencer'
+import { hasApprovedEnrollment } from '@/lib/server/influencer-apps'
 import { requireUser, UnauthorizedError } from '@/lib/server/verify-token'
 
 export const runtime = 'nodejs'
@@ -12,8 +13,7 @@ export async function GET(req: Request): Promise<Response> {
     throw err
   }
   try {
-    const influencer = await getInfluencer(uid)
-    if (!influencer || influencer.status !== 'approved') return Response.json({ error: 'forbidden' }, { status: 403 })
+    if (!(await hasApprovedEnrollment(uid))) return Response.json({ error: 'forbidden' }, { status: 403 })
     const cursor = new URL(req.url).searchParams.get('cursor')
     const { referrals, nextCursor } = await listReferrals(uid, 20, cursor ?? undefined)
     return Response.json({ referrals, nextCursor })

@@ -1,4 +1,5 @@
-import { getInfluencer, listPayouts } from '@/lib/server/influencer'
+import { listPayouts } from '@/lib/server/influencer'
+import { hasApprovedEnrollment } from '@/lib/server/influencer-apps'
 import { requireUser, UnauthorizedError } from '@/lib/server/verify-token'
 
 export const runtime = 'nodejs'
@@ -12,8 +13,7 @@ export async function GET(req: Request): Promise<Response> {
     throw err
   }
   try {
-    const influencer = await getInfluencer(uid)
-    if (!influencer || influencer.status !== 'approved') return Response.json({ error: 'forbidden' }, { status: 403 })
+    if (!(await hasApprovedEnrollment(uid))) return Response.json({ error: 'forbidden' }, { status: 403 })
     const cursor = new URL(req.url).searchParams.get('cursor')
     const { payouts, nextCursor } = await listPayouts(uid, 20, cursor ?? undefined)
     return Response.json({ payouts, nextCursor })

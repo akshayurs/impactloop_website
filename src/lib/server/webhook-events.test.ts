@@ -33,7 +33,15 @@ describe('mapWebhookEvent', () => {
     expect(mapWebhookEvent(body)).toEqual({ kind: 'order-paid', orderId: 'order_1', paymentId: 'pay_9', amountPaise: 199900 })
   })
   it('unknown events are ignored with reason', () => {
-    expect(mapWebhookEvent({ event: 'refund.processed', payload: {} })).toEqual({ kind: 'ignore', reason: 'unhandled event refund.processed' })
+    expect(mapWebhookEvent({ event: 'payment.authorized', payload: {} })).toEqual({ kind: 'ignore', reason: 'unhandled event payment.authorized' })
+  })
+  it('refund.processed -> refund with paymentId and amount', () => {
+    const body = { event: 'refund.processed', payload: { refund: { entity: { id: 'rfnd_1', payment_id: 'pay_9', amount: 199900 } } } }
+    expect(mapWebhookEvent(body)).toEqual({ kind: 'refund', paymentId: 'pay_9', amountPaise: 199900 })
+  })
+  it('refund.created falls back to payment entity id, tolerates missing amount', () => {
+    const body = { event: 'refund.created', payload: { payment: { entity: { id: 'pay_5' } } } }
+    expect(mapWebhookEvent(body)).toEqual({ kind: 'refund', paymentId: 'pay_5', amountPaise: null })
   })
   it('malformed subscription payload is ignored, not thrown', () => {
     expect(mapWebhookEvent({ event: 'subscription.charged', payload: {} })).toMatchObject({ kind: 'ignore' })

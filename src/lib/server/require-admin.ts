@@ -10,7 +10,8 @@ export async function requireAdmin(req: Request): Promise<{ uid: string; email: 
   if (!header?.startsWith('Bearer ')) throw new UnauthorizedError('missing bearer token')
   let decoded: { uid: string; email?: string; admin?: unknown }
   try {
-    decoded = await adminAuth().verifyIdToken(header.slice('Bearer '.length))
+    // checkRevoked: a disabled/revoked admin loses access immediately, not after token TTL.
+    decoded = await adminAuth().verifyIdToken(header.slice('Bearer '.length), true)
   } catch {
     throw new UnauthorizedError('invalid token')
   }

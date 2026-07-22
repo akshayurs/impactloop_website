@@ -47,7 +47,8 @@ export function AccountView() {
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [trialMsg, setTrialMsg] = useState<string | null>(null)
   const [trialPending, setTrialPending] = useState(false)
-  const [influencerStatus, setInfluencerStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null)
+  const [influencerJoined, setInfluencerJoined] = useState<boolean | null>(null)
+  const [influencerAppCount, setInfluencerAppCount] = useState(0)
   const [influencerLoading, setInfluencerLoading] = useState(false)
   const [socialLinks, setSocialLinks] = useState([''])
   const [applyPending, setApplyPending] = useState(false)
@@ -109,7 +110,8 @@ export function AccountView() {
         const res = await fetch('/api/influencer/me', { headers: { Authorization: `Bearer ${token}` } })
         if (res.ok) {
           const data = await res.json()
-          if (data.influencer) setInfluencerStatus(data.influencer.status)
+          setInfluencerJoined(Boolean(data.profile))
+          setInfluencerAppCount(Array.isArray(data.apps) ? data.apps.length : 0)
         }
       } catch {
         /* ignore */
@@ -183,7 +185,7 @@ export function AccountView() {
         setApplyError(data.error ?? 'Application failed.')
         return
       }
-      setInfluencerStatus('pending')
+      setInfluencerJoined(true)
       setSocialLinks([''])
     } catch {
       setApplyError('Application failed.')
@@ -338,27 +340,28 @@ export function AccountView() {
       </div>
       {influencerLoading ? (
         <div className="skeleton mt-6 h-24 rounded-2xl" aria-label="Loading influencer status" />
-      ) : influencerStatus ? (
+      ) : influencerJoined ? (
         <Card className="mt-6">
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-              {influencerStatus === 'pending' && 'Application under review'}
-              {influencerStatus === 'approved' && 'Approved'}
-              {influencerStatus === 'rejected' && 'Application rejected'}
+              {influencerAppCount > 0
+                ? `Enrolled in ${influencerAppCount} app${influencerAppCount > 1 ? 's' : ''}`
+                : 'Partner program joined'}
             </p>
-            <Badge tone={influencerStatus === 'approved' ? 'success' : influencerStatus === 'pending' ? 'default' : 'warn'}>
-              {influencerStatus}
-            </Badge>
+            <Badge tone="success">partner</Badge>
           </div>
+          <p className="mt-3 text-sm text-muted">
+            Manage your apps, promo codes and payouts in the partner portal.
+          </p>
           <div className="mt-4">
             <Button href="/influencer" variant="outline" size="sm">
-              View portal
+              {influencerAppCount > 0 ? 'View portal' : 'Enroll in apps'}
             </Button>
           </div>
         </Card>
       ) : (
         <Card className="mt-6">
-          <p className="mb-4 text-sm text-muted">Earn commissions by referring users with your promo code.</p>
+          <p className="mb-4 text-sm text-muted">Earn commissions by referring users — join once, then enroll per app.</p>
           {applyError ? (
             <p role="alert" className="mb-4 text-sm text-red-500">
               {applyError}
@@ -439,7 +442,15 @@ export function AccountView() {
                     {' · '}
                     {p.type}
                   </span>
-                  <span className="shrink-0 font-display font-semibold text-fg">{formatINR(p.amountPaise)}</span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="font-display font-semibold text-fg">{formatINR(p.amountPaise)}</span>
+                    <a
+                      href={`/receipt/${p.id}`}
+                      className="font-mono text-xs text-muted underline underline-offset-2 hover:text-fg"
+                    >
+                      Receipt
+                    </a>
+                  </span>
                 </li>
               ))}
             </ul>

@@ -4,23 +4,25 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { APPS } from '@/config/apps'
 
-const crackloop = APPS[0]
+const liveApps = APPS.filter((a) => a.status === 'live')
+const flagship = liveApps[0] ?? APPS[0]
+const marqueeTopics = Array.from(new Set(liveApps.flatMap((a) => a.topics)))
 
 const STEPS = [
   {
     n: '01',
-    title: 'Pick your track',
-    body: 'DSA, system design, CS fundamentals — choose what you’re cracking and the daily plan shapes itself around it.',
+    title: 'Pick a loop',
+    body: 'Choose the app for the skill you’re building. Each one runs on the same daily-habit engine.',
   },
   {
     n: '02',
-    title: 'Run your daily loop',
-    body: 'Swipe concept cards, take a quick quiz, review yesterday’s misses. Short enough to never skip.',
+    title: 'Run it daily',
+    body: 'A few focused minutes — swipe, practice, review yesterday’s misses. Short enough to never skip.',
   },
   {
     n: '03',
     title: 'Close the loop',
-    body: 'Streaks, badges, and spaced repetition lock it in. Leaderboards make showing up a sport.',
+    body: 'Streaks, spaced repetition and rewards lock the habit in long after day one.',
   },
 ]
 
@@ -44,12 +46,13 @@ export default function HomePage() {
               Apps that build <span className="loop-underline">habits</span> that stick.
             </h1>
             <p className="fade-up fade-up-2 mt-6 max-w-xl text-lg text-muted">
-              One focused loop a day beats a weekend of cramming. We build learning apps around that
-              single idea — starting with <strong className="text-fg">CrackLoop</strong> for tech
-              interviews.
+              One focused loop a day beats a weekend of cramming. Impact Loop is a studio building
+              learning apps around that single idea — starting with{' '}
+              <strong className="text-fg">CrackLoop</strong> for tech interviews, with more loops on
+              the way.
             </p>
             <div className="fade-up fade-up-3 mt-10 flex flex-wrap gap-3">
-              <Button href="/apps/crackloop" size="lg">Explore CrackLoop</Button>
+              <Button href="/apps" size="lg">Explore the apps</Button>
               <Button href="/pricing" size="lg" variant="outline">See pricing</Button>
             </div>
             <p className="fade-up fade-up-3 mt-6 font-mono text-xs uppercase tracking-[0.18em] text-muted">
@@ -59,8 +62,8 @@ export default function HomePage() {
           <div className="fade-up fade-up-2 relative mx-auto w-64 sm:w-72">
             <div aria-hidden className="loop-ring absolute -left-10 -top-8 h-24 w-24 opacity-60" />
             <Image
-              src={crackloop.screenshots[0]}
-              alt="CrackLoop app — structured decks for DSA, system design, and CS fundamentals"
+              src={flagship.screenshots[0]}
+              alt={`${flagship.name} app`}
               width={450}
               height={780}
               priority
@@ -71,12 +74,12 @@ export default function HomePage() {
       </section>
 
       {/* ——— Topic marquee ——— */}
-      <section aria-label="Topics covered" className="border-y-2 border-line-strong bg-bg-raised py-4">
+      <section aria-label="What we cover" className="border-y-2 border-line-strong bg-bg-raised py-4">
         <div className="marquee">
           <div className="marquee-track">
             {[0, 1].map((dup) => (
               <span key={dup} aria-hidden={dup === 1} className="flex gap-12">
-                {crackloop.topics.map((t) => (
+                {marqueeTopics.map((t) => (
                   <span key={t} className="flex items-center gap-3 whitespace-nowrap font-mono text-sm uppercase tracking-[0.18em] text-muted">
                     <span aria-hidden className="loop-ring inline-block h-3 w-3" />
                     {t}
@@ -88,32 +91,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ——— 01 · The app ——— */}
+      {/* ——— 01 · The apps ——— */}
       <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6" aria-labelledby="apps-heading">
         <div className="flex items-baseline justify-between border-b-2 border-line-strong pb-4">
           <p className="kicker">01 — The apps</p>
           <p className="hidden font-mono text-xs uppercase tracking-[0.18em] text-muted sm:block">
-            one studio · many loops
+            one engine · many loops
           </p>
         </div>
         <h2 id="apps-heading" className="mt-8 max-w-2xl font-display text-4xl font-bold text-fg">
-          CrackLoop is the first loop.
+          One studio. Focused loops.
         </h2>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          <Link href="/apps/crackloop" className="group lg:col-span-2">
+          <Link href={`/apps/${flagship.id}`} className="group lg:col-span-2">
             <article className="card-lift flex h-full flex-col justify-between rounded-2xl border-2 border-line-strong bg-card p-8">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-display text-3xl font-bold text-fg">{crackloop.name}</h3>
+                  <h3 className="font-display text-3xl font-bold text-fg">{flagship.name}</h3>
                   <Badge tone="success">Live on Play Store</Badge>
                 </div>
                 <p className="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-accent">
-                  {crackloop.tagline}
+                  {flagship.tagline}
                 </p>
-                <p className="mt-4 max-w-lg text-muted">{crackloop.description}</p>
+                <p className="mt-4 max-w-lg text-muted">{flagship.description}</p>
                 <ul className="mt-6 grid gap-2 sm:grid-cols-2">
-                  {crackloop.features.map((f) => (
+                  {flagship.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm text-muted">
                       <span aria-hidden className="mt-1 text-accent">↳</span>
                       {f}
@@ -145,9 +148,13 @@ export default function HomePage() {
             ))}
           </div>
         </div>
+
+        <div className="mt-8">
+          <Button href="/apps" variant="outline" size="sm">See all apps →</Button>
+        </div>
       </section>
 
-      {/* ——— 02 · How it works ——— */}
+      {/* ——— 02 · The method ——— */}
       <section className="border-y-2 border-line-strong bg-bg-raised" aria-labelledby="how-heading">
         <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
           <div className="flex items-baseline justify-between border-b border-line pb-4">
@@ -171,18 +178,18 @@ export default function HomePage() {
       {/* ——— 03 · Screens ——— */}
       <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6" aria-labelledby="screens-heading">
         <div className="flex items-baseline justify-between border-b-2 border-line-strong pb-4">
-          <p className="kicker">03 — Inside the app</p>
+          <p className="kicker">03 — Inside {flagship.name}</p>
         </div>
         <h2 id="screens-heading" className="mt-8 font-display text-4xl font-bold text-fg">
           Built to open daily.
         </h2>
         <div className="-mx-4 mt-10 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
           <div className="flex w-max gap-6">
-            {crackloop.screenshots.slice(0, 5).map((src, i) => (
+            {flagship.screenshots.slice(0, 5).map((src, i) => (
               <Image
                 key={src}
                 src={src}
-                alt={`CrackLoop screen ${i + 1}`}
+                alt={`${flagship.name} screen ${i + 1}`}
                 width={280}
                 height={470}
                 className={`card-lift w-56 rounded-2xl border-2 border-line-strong ${i % 2 ? 'rotate-1' : '-rotate-1'}`}
@@ -201,7 +208,7 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted">
             Web subscriptions skip app-store fees, so plans here cost less than the same plans on
-            Google Play. One account, works everywhere. Cancel anytime.
+            Google Play. One account, works across every app. Cancel anytime.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button href="/pricing" size="lg">View plans</Button>

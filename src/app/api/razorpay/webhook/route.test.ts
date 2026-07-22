@@ -1,25 +1,35 @@
 import { createHmac } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { writeEntitlement, getPlanById, docGet, docSet, getInfluencer, recordReferral } = vi.hoisted(() => ({
+const { writeEntitlement, clearEntitlement, getPlanById, docGet, docSet, getEnrollment, recordReferral, reverseReferral, creditSignupCommission, orderQueryGet } = vi.hoisted(() => ({
   writeEntitlement: vi.fn(),
+  clearEntitlement: vi.fn(),
   getPlanById: vi.fn(),
   docGet: vi.fn(),
   docSet: vi.fn(),
-  getInfluencer: vi.fn(),
+  getEnrollment: vi.fn(),
   recordReferral: vi.fn(),
+  reverseReferral: vi.fn(),
+  creditSignupCommission: vi.fn(),
+  orderQueryGet: vi.fn(),
 }))
 
 vi.mock('@/lib/server/entitlements', async (importOriginal) => {
   const actual: any = await importOriginal()
-  return { ...actual, writeEntitlement }
+  return { ...actual, writeEntitlement, clearEntitlement }
 })
 vi.mock('@/lib/server/plans-store', () => ({ getPlanById }))
-vi.mock('@/lib/server/influencer', () => ({ getInfluencer, recordReferral }))
+vi.mock('@/lib/server/influencer', () => ({ recordReferral, reverseReferral }))
+vi.mock('@/lib/server/influencer-apps', () => ({ getEnrollment }))
+vi.mock('@/lib/server/commission', () => ({ creditSignupCommission }))
 vi.mock('@/lib/server/firebase-admin', () => ({
-  adminDb: () => ({
-    doc: (path: string) => ({ get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
-  }),
+  adminDb: () => {
+    const query: any = { where: () => query, limit: () => query, get: () => orderQueryGet() }
+    return {
+      doc: (path: string) => ({ get: () => docGet(path), set: (d: unknown, o?: unknown) => docSet(path, d, o) }),
+      collection: () => query,
+    }
+  },
 }))
 
 import { POST } from './route'
@@ -50,7 +60,8 @@ describe('POST /api/razorpay/webhook', () => {
     vi.clearAllMocks()
     process.env.RAZORPAY_WEBHOOK_SECRET = SECRET
     getPlanById.mockResolvedValue(PLAN)
-    getInfluencer.mockResolvedValue(null)
+    getEnrollment.mockResolvedValue(null)
+    orderQueryGet.mockResolvedValue({ docs: [] })
     docGet.mockImplementation(async (path: string) => {
       if (path === 'webhookEvents/evt_1') return { exists: false }
       if (path === 'razorpaySubscriptions/sub_1') return { exists: true, data: () => ({ uid: 'u1', appId: 'crackloop', planId: PLAN.id }) }
@@ -141,7 +152,7 @@ describe('POST /api/razorpay/webhook', () => {
   })
 
   it('ignored events return 200 and only write marker', async () => {
-    const body = { event: 'refund.processed', payload: {} }
+    const body = { event: 'payment.authorized', payload: {} }
     const res = await POST(signed(body, 'evt_5'))
     expect(res.status).toBe(200)
     expect(writeEntitlement).not.toHaveBeenCalled()
@@ -149,8 +160,33 @@ describe('POST /api/razorpay/webhook', () => {
     expect(docSet.mock.calls[0][0]).toBe('webhookEvents/evt_5')
   })
 
+  it('refund on a lifetime order revokes access and reverses the commission', async () => {
+    const orderRef = { set: (d: unknown, o?: unknown) => docSet('orders/order_1', d, o) }
+    orderQueryGet.mockResolvedValue({
+      docs: [{ data: () => ({ uid: 'u1', appId: 'crackloop', paymentId: 'pay_r' }), ref: orderRef }],
+    })
+    const body = { event: 'refund.processed', payload: { refund: { entity: { id: 'rfnd_1', payment_id: 'pay_r', amount: 199900 } } } }
+    const res = await POST(signed(body, 'evt_11'))
+    expect(res.status).toBe(200)
+    expect(clearEntitlement).toHaveBeenCalledWith('u1', 'crackloop', 'refunded')
+    expect(reverseReferral).toHaveBeenCalledWith('lifetime-u1-crackloop', expect.any(Number))
+    expect(docSet).toHaveBeenCalledWith('orders/order_1', expect.objectContaining({ status: 'refunded' }), { merge: true })
+  })
+
+  it('refund with no matching order warns, does not revoke', async () => {
+    orderQueryGet.mockResolvedValue({ docs: [] })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const body = { event: 'refund.processed', payload: { refund: { entity: { id: 'rfnd_2', payment_id: 'pay_unknown', amount: 5000 } } } }
+    const res = await POST(signed(body, 'evt_12'))
+    expect(res.status).toBe(200)
+    expect(clearEntitlement).not.toHaveBeenCalled()
+    expect(reverseReferral).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('charged with promo on index doc records commission', async () => {
-    getInfluencer.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { 'crackloop-pro-1m': 1500 } } })
+    getEnrollment.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { 'crackloop-pro-1m': 1500 } } })
     docGet.mockImplementation(async (path: string) => {
       if (path === 'webhookEvents/evt_7') return { exists: false }
       if (path === 'razorpaySubscriptions/sub_1')
@@ -159,7 +195,7 @@ describe('POST /api/razorpay/webhook', () => {
     })
     await POST(signed(CHARGED, 'evt_7'))
     expect(recordReferral).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'sub-sub_1', type: 'subscription', ownerUid: 'inf1', referredUid: 'u1', commissionPaise: 1500,
+      id: 'sub-sub_1', type: 'subscription', ownerUid: 'inf1', appId: 'crackloop', referredUid: 'u1', commissionPaise: 1500,
     }))
   })
 
@@ -170,7 +206,7 @@ describe('POST /api/razorpay/webhook', () => {
         return { exists: true, data: () => ({ uid: 'u1', appId: 'crackloop', planId: 'crackloop-pro-1m', promoCode: 'AK10X', promoOwnerUid: 'inf1' }) }
       return { exists: false, data: () => undefined }
     })
-    getInfluencer.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: {} } })
+    getEnrollment.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: {} } })
     await POST(signed(CHARGED, 'evt_8'))
     expect(recordReferral).not.toHaveBeenCalled()
 
@@ -180,7 +216,7 @@ describe('POST /api/razorpay/webhook', () => {
         return { exists: true, data: () => ({ uid: 'u1', appId: 'crackloop', planId: 'crackloop-pro-1m', promoCode: 'AK10X', promoOwnerUid: 'inf1' }) }
       return { exists: false, data: () => undefined }
     })
-    getInfluencer.mockResolvedValue({ status: 'rejected', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { 'crackloop-pro-1m': 1500 } } })
+    getEnrollment.mockResolvedValue({ status: 'rejected', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { 'crackloop-pro-1m': 1500 } } })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await POST(signed(CHARGED, 'evt_9'))
     expect(recordReferral).not.toHaveBeenCalled()
@@ -190,7 +226,7 @@ describe('POST /api/razorpay/webhook', () => {
 
   it('order.paid backup path records lifetime commission from order doc', async () => {
     getPlanById.mockResolvedValue({ ...PLAN, id: 'life', lifetime: true, durationMonths: null, razorpayPlanId: null })
-    getInfluencer.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { life: 20000 } } })
+    getEnrollment.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { life: 20000 } } })
     docGet.mockImplementation(async (path: string) => {
       if (path === 'webhookEvents/evt_10') return { exists: false }
       if (path === 'orders/order_2')
@@ -200,7 +236,7 @@ describe('POST /api/razorpay/webhook', () => {
     const body = { event: 'order.paid', payload: { order: { entity: { id: 'order_2' } }, payment: { entity: { id: 'pay_10', amount: 179910 } } } }
     await POST(signed(body, 'evt_10'))
     expect(recordReferral).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'pay-pay_10', type: 'lifetime', ownerUid: 'inf1', referredUid: 'u1', commissionPaise: 20000,
+      id: 'lifetime-u1-crackloop', type: 'lifetime', ownerUid: 'inf1', appId: 'crackloop', referredUid: 'u1', commissionPaise: 20000,
     }))
   })
 })

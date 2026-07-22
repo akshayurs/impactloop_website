@@ -1,10 +1,15 @@
+import * as Sentry from '@sentry/nextjs'
 import { adminDb } from '@/lib/server/firebase-admin'
+import { creditSignupCommission } from '@/lib/server/commission'
 import {
   buildLifetimeEntitlement,
   buildSubscriptionEntitlement,
+  clearEntitlement,
   writeEntitlement,
 } from '@/lib/server/entitlements'
-import { getInfluencer, recordReferral } from '@/lib/server/influencer'
+import { notifyCommission, notifyPurchase } from '@/lib/server/email/notify'
+import { recordReferral, reverseReferral } from '@/lib/server/influencer'
+import { getEnrollment } from '@/lib/server/influencer-apps'
 import { getPlanById } from '@/lib/server/plans-store'
 import { commissionForPlan } from '@/lib/server/promo'
 import { verifyWebhookSignature } from '@/lib/server/razorpay'
@@ -15,32 +20,35 @@ export const runtime = 'nodejs'
 async function maybeRecordCommission(params: {
   promoCode?: string | null
   promoOwnerUid?: string | null
+  appId: string
   planId: string
   referredUid: string
   referralId: string
   type: 'subscription' | 'lifetime'
   nowMillis: number
 }): Promise<void> {
-  const { promoCode, promoOwnerUid, planId, referredUid, referralId, type, nowMillis } = params
+  const { promoCode, promoOwnerUid, appId, planId, referredUid, referralId, type, nowMillis } = params
   if (!promoCode || !promoOwnerUid) return
   if (promoOwnerUid === referredUid) return
-  const owner = await getInfluencer(promoOwnerUid)
-  if (!owner || owner.status !== 'approved') {
-    console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, referralId })
+  const enrollment = await getEnrollment(promoOwnerUid, appId)
+  if (!enrollment || enrollment.status !== 'approved') {
+    console.warn('webhook: promo owner missing/not approved, skipping commission', { promoOwnerUid, appId, referralId })
     return
   }
-  const commissionPaise = commissionForPlan(owner.commissionRates, planId)
+  const commissionPaise = commissionForPlan(enrollment.commissionRates, planId)
   if (commissionPaise <= 0) return
-  await recordReferral({
+  const created = await recordReferral({
     id: referralId,
     code: promoCode,
     ownerUid: promoOwnerUid,
+    appId,
     referredUid,
     type,
     planId,
     commissionPaise,
     nowMillis,
   })
+  if (created) await notifyCommission({ ownerUid: promoOwnerUid, planId, commissionPaise })
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -105,17 +113,20 @@ export async function POST(req: Request): Promise<Response> {
           { amountPaise: effect.amountPaise, planId: ctx.planId, appId: ctx.appId, type: 'subscription', createdAt: now },
           { merge: true },
         )
+        await notifyPurchase({ uid: ctx.uid, appId: ctx.appId, planId: ctx.planId })
       }
       if (effect.paymentId) {
         await maybeRecordCommission({
           promoCode: ctx.promoCode,
           promoOwnerUid: ctx.promoOwnerUid,
+          appId: ctx.appId,
           planId: ctx.planId,
           referredUid: ctx.uid,
           referralId: `sub-${effect.subscriptionId}`,
           type: 'subscription',
           nowMillis: now,
         })
+        await creditSignupCommission(ctx.uid, now)
       }
     } else if (effect.kind === 'order-paid') {
       const orderSnap = await adminDb().doc(`orders/${effect.orderId}`).get()
@@ -129,16 +140,35 @@ export async function POST(req: Request): Promise<Response> {
             { amountPaise: effect.amountPaise, planId: order.planId, appId: order.appId, type: 'lifetime', createdAt: now },
             { merge: true },
           )
+          await notifyPurchase({ uid: order.uid, appId: order.appId, planId: order.planId })
           await maybeRecordCommission({
             promoCode: order.promoCode,
             promoOwnerUid: order.promoOwnerUid,
+            appId: order.appId,
             planId: order.planId,
             referredUid: order.uid,
-            referralId: `pay-${effect.paymentId}`,
+            referralId: `lifetime-${order.uid}-${order.appId}`,
             type: 'lifetime',
             nowMillis: now,
           })
+          await creditSignupCommission(order.uid, now)
         }
+      }
+    } else if (effect.kind === 'refund') {
+      // Refund/chargeback: pull access and void the commission tied to this payment.
+      // Handles the lifetime/order path fully; subscription-charge refunds are logged
+      // for manual reconciliation (no order doc to resolve payment -> uid/app).
+      const orderQuery = await adminDb().collection('orders').where('paymentId', '==', effect.paymentId).limit(1).get()
+      const orderDoc = orderQuery.docs[0]
+      if (orderDoc) {
+        const o = orderDoc.data()
+        await clearEntitlement(o.uid, o.appId, 'refunded')
+        await reverseReferral(`lifetime-${o.uid}-${o.appId}`, now)
+        await orderDoc.ref.set({ status: 'refunded', refundedAt: now }, { merge: true })
+      } else {
+        console.warn('webhook: refund for a payment with no lifetime order; manual reconciliation needed', {
+          paymentId: effect.paymentId,
+        })
       }
     }
 
@@ -146,6 +176,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ ok: true })
   } catch (err) {
     console.error('webhook processing failed', err)
+    Sentry.captureException(err, { tags: { area: 'razorpay-webhook' } })
     return Response.json({ error: 'processing failed' }, { status: 500 })
   }
 }

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { docGet, docSet, collGet, listUsersFn, getUserFn, createPlan, aggTotals } = vi.hoisted(() => ({
+const { docGet, docSet, collGet, listUsersFn, getUserFn, createPlan, cancelSub, aggTotals } = vi.hoisted(() => ({
   docGet: vi.fn(),
   docSet: vi.fn(),
   collGet: vi.fn(),
   listUsersFn: vi.fn(),
   getUserFn: vi.fn(),
   createPlan: vi.fn(),
+  cancelSub: vi.fn(),
   aggTotals: { referrals: 5000, payouts: 2000 } as Record<string, number>,
 }))
 vi.mock('./firebase-admin', () => {
@@ -28,7 +29,7 @@ vi.mock('./firebase-admin', () => {
     adminAuth: () => ({ listUsers: listUsersFn, getUser: getUserFn }),
   }
 })
-vi.mock('./razorpay', () => ({ createPlan }))
+vi.mock('./razorpay', () => ({ createPlan, cancelSubscriptionAtCycleEnd: cancelSub }))
 vi.mock('firebase-admin/firestore', () => ({ AggregateField: { sum: (f: string) => f } }))
 
 import {
@@ -92,7 +93,7 @@ describe('getMetrics', () => {
         ]
         return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
       }
-      if (path === 'influencers') {
+      if (path === 'influencerApps') {
         const docs = [{ data: () => ({ status: 'pending' }) }, { data: () => ({ status: 'approved' }) }]
         return Promise.resolve({ size: docs.length, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) })
       }
@@ -146,6 +147,10 @@ describe('getUserDetail', () => {
 })
 
 describe('revokeEntitlement', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    docGet.mockResolvedValue({ exists: true, data: () => ({ subscription: {} }) })
+  })
   it('zeroes grants, marks revoked, clears expiry with merge', async () => {
     await revokeEntitlement('u1', 'crackloop')
     expect(docSet).toHaveBeenCalledWith(
@@ -153,6 +158,12 @@ describe('revokeEntitlement', () => {
       { subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null }, entitlements: { adFree: false, unlimitedAi: false, tier: null } },
       { merge: true },
     )
+    expect(cancelSub).not.toHaveBeenCalled()
+  })
+  it('cancels the razorpay subscription when one is attached', async () => {
+    docGet.mockResolvedValue({ exists: true, data: () => ({ subscription: { razorpaySubscriptionId: 'sub_1' } }) })
+    await revokeEntitlement('u1', 'crackloop')
+    expect(cancelSub).toHaveBeenCalledWith('sub_1')
   })
 })
 

@@ -1,149 +1,191 @@
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Privacy' }
+export const metadata: Metadata = {
+  title: 'Privacy',
+  description: 'How Impact Loop handles your data across the website and mobile apps.',
+}
 
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="font-display text-4xl font-bold text-fg">Privacy Policy</h1>
-      <p className="mt-3 text-muted">Last updated: 26 June 2026</p>
+      <span className="kicker">Legal</span>
+      <h1 className="mt-4 font-display text-4xl font-bold text-fg sm:text-5xl">Privacy Policy</h1>
+      <p className="mt-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">Last updated: 16 July 2026</p>
 
       <p className="mt-8 text-muted">
         Impact Loop is an indie app studio operated by an individual (sole proprietor) based in India
-        (&ldquo;Impact Loop&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). We build privacy-respecting
-        apps. We do not require you to create an account, and we do not collect personal information
-        to identify you. This policy explains what limited data the Services involve.
+        (&ldquo;Impact Loop&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). This policy explains what data we handle across
+        the Impact Loop website (the &ldquo;Site&rdquo;) and our mobile applications, including CrackLoop (together, the
+        &ldquo;Services&rdquo;). Our mobile apps are built to keep most data on your device; the website, because it
+        handles accounts and payments, necessarily processes some personal data, as described below.
       </p>
 
       <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">1. Overview</h2>
       <p className="mt-3 text-muted">
-        This Privacy Policy describes how data is handled across the Impact Loop website (the
-        &ldquo;Site&rdquo;) and our mobile applications, including CrackLoop (collectively, the
-        &ldquo;Services&rdquo;). The Services work without any sign-in or account. We ourselves do not
-        collect your name, email, phone number, or location. Some limited data is processed by
-        trusted third parties (such as Google) to deliver ads, process purchases, and serve content,
-        as described below.
+        You can browse the Site without signing in. To buy a subscription or lifetime unlock, or to join our partner
+        program, you sign in with Google and we process the limited data needed to provide those features. We keep data
+        collection to what is necessary and rely on established processors (Google, Razorpay) for the sensitive parts.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">2. Information we collect</h2>
-      <p className="mt-3 text-muted">We keep data collection to a minimum:</p>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
+        2. Information we collect
+      </h2>
       <ul className="mt-3 space-y-2 text-muted">
         <li className="flex items-start gap-2">
           <span aria-hidden className="mt-1 text-accent">↳</span>
           <span>
-            <strong className="text-fg">No account data.</strong> We do not ask you to register, and
-            we do not store your identity on our servers.
+            <strong className="text-fg">Account data.</strong> When you sign in on the website we use Google Sign-In
+            (via Firebase Authentication) and receive your name, email address, profile photo, and a Google account
+            identifier. We use this to identify your account and grant access to what you buy.
           </span>
         </li>
         <li className="flex items-start gap-2">
           <span aria-hidden className="mt-1 text-accent">↳</span>
           <span>
-            <strong className="text-fg">On-device data.</strong> Your preferences, bookmarks, notes,
-            reading progress, and downloaded content are stored locally on your device, not on our
-            servers. You can clear them from within the app or by uninstalling it.
+            <strong className="text-fg">Purchase &amp; subscription data.</strong> When you make a purchase we store
+            records such as your plan, subscription status, entitlements, amounts, and payment/order references and
+            timestamps. We do <strong className="text-fg">not</strong> receive or store your card, UPI, or bank
+            details — those are handled by our payment processor (see §4).
           </span>
         </li>
         <li className="flex items-start gap-2">
           <span aria-hidden className="mt-1 text-accent">↳</span>
           <span>
-            <strong className="text-fg">Technical data via third parties.</strong> When the app shows
-            ads, processes a purchase, or downloads content, the relevant third-party service (e.g.
-            Google) may process technical data such as device and advertising identifiers and IP
-            address, as covered in their own privacy policies.
+            <strong className="text-fg">Partner-program data (optional).</strong> If you join our partner program, we
+            store the social/profile links you provide, your promo code, your referral and commission records, and the
+            UPI ID you give us so we can pay out earnings.
+          </span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span>
+            <strong className="text-fg">Email data.</strong> We use your email to send transactional messages (receipts,
+            renewal reminders, partner notifications) and, if you opt in, occasional product updates. We store your
+            email preferences and a log of messages sent so we can honour opt-outs and avoid duplicates.
+          </span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span>
+            <strong className="text-fg">On-device app data.</strong> In our mobile apps, your preferences, bookmarks,
+            notes, progress, and downloaded content are stored locally on your device, not on our servers. You can clear
+            them in the app or by uninstalling it.
+          </span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span>
+            <strong className="text-fg">Technical data.</strong> Like any website or app, our hosting and third-party
+            services process technical data such as IP address and request logs to deliver and secure the Services. Our
+            apps may show ads through Google AdMob, which processes advertising identifiers and IP address (see §5).
           </span>
         </li>
       </ul>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">3. Advertising</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
+        3. How we use your data
+      </h2>
       <p className="mt-3 text-muted">
-        Our apps may display ads through <strong className="text-fg">Google AdMob</strong>. To serve
-        and measure ads, Google may collect and use data such as your device&rsquo;s advertising
-        identifier and IP address, and may serve personalized or non-personalized ads in accordance
-        with its policies. Learn more in{' '}
-        <a
-          className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-          href="https://policies.google.com/technologies/ads"
-          target="_blank"
-          rel="noopener"
-        >
-          Google&rsquo;s advertising policy
-        </a>
-        . You can reset or limit ad personalization in your device settings (Android: Settings →
-        Google → Ads). Where required, we request consent for personalized ads.
+        We use the data above to: provide and secure the Services; create your account and grant the access you buy;
+        process payments and manage subscriptions; run the partner program and pay out commissions; send transactional
+        and (with consent) marketing emails; prevent fraud and abuse; and comply with legal obligations.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">4. Purchases</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">4. Payments</h2>
       <p className="mt-3 text-muted">
-        Optional paid features (such as &ldquo;CrackLoop Pro&rdquo;) are sold through{' '}
-        <strong className="text-fg">Google Play Billing</strong>. Payments are handled entirely by
-        Google — we do not receive or store your card or payment details. Google processes purchase
-        data under its{' '}
-        <a
-          className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-          href="https://policies.google.com/privacy"
-          target="_blank"
-          rel="noopener"
-        >
-          privacy policy
-        </a>
-        .
-      </p>
-
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">5. Content delivery</h2>
-      <p className="mt-3 text-muted">
-        Study content is downloaded from our content repository hosted on{' '}
-        <strong className="text-fg">GitHub</strong> (including GitHub Releases and raw file hosting).
-        As with any network request, GitHub may process your IP address to deliver the files. We do
-        not attach any identifier of yours to these requests. Once downloaded, content is cached on
-        your device so the app works offline.
+        Web payments are processed by <strong className="text-fg">Razorpay</strong>. Your card, UPI, netbanking, and
+        similar payment details are collected and processed by Razorpay under its own terms and privacy policy; we
+        receive only a confirmation and non-sensitive references (such as payment and order IDs and the amount).
+        In-app purchases in our mobile apps are processed by <strong className="text-fg">Google Play Billing</strong>.
       </p>
 
       <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
-        6. Data storage &amp; retention
+        5. Third-party processors
+      </h2>
+      <p className="mt-3 text-muted">We rely on the following trusted providers, each governed by its own privacy policy:</p>
+      <ul className="mt-3 space-y-2 text-muted">
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span><strong className="text-fg">Google / Firebase</strong> — sign-in (Firebase Authentication), database (Cloud Firestore), and, in apps, advertising (AdMob).</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span><strong className="text-fg">Razorpay</strong> — payment processing for web purchases.</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span><strong className="text-fg">Google (Gmail)</strong> — delivery of transactional and marketing email.</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span><strong className="text-fg">Vercel</strong> — website hosting and delivery.</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span><strong className="text-fg">GitHub</strong> — hosting of study content downloaded by the apps.</span>
+        </li>
+      </ul>
+
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
+        6. Cookies &amp; local storage
       </h2>
       <p className="mt-3 text-muted">
-        Because the data the app creates (preferences, bookmarks, notes, cached content) lives on
-        your device, you remain in control of it. Clearing the app&rsquo;s data or uninstalling the
-        app removes it. Data processed by Google for ads and billing is retained according to
-        Google&rsquo;s own policies.
+        We use a small number of functional cookies and local storage entries: your sign-in session, your light/dark
+        theme preference, and — if you arrive through a partner link — a referral code cookie that lasts about 30 days
+        so the right partner is credited. We do not use advertising cookies on the website.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">7. Children&rsquo;s privacy</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
+        7. Data storage &amp; retention
+      </h2>
       <p className="mt-3 text-muted">
-        The Services are intended for a general audience and are not directed to children under 13.
-        We do not knowingly collect personal information from children. If you believe a child has
-        provided personal information, contact us and we will take appropriate steps.
+        Account, purchase, and partner records are stored in Google Cloud Firestore and retained for as long as your
+        account is active or as needed to provide the Services, resolve disputes, and meet legal, tax, and accounting
+        obligations. On-device app data lives on your device and is removed when you clear the app&rsquo;s data or
+        uninstall it.
       </p>
 
       <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">8. Your rights</h2>
       <p className="mt-3 text-muted">
-        Depending on where you live, you may have rights to access, correct, or delete personal data,
-        or to object to certain processing. Since we do not hold an account or personal profile for
-        you, most data can be managed directly on your device. For requests relating to data
-        processed by Google (ads/billing), use Google&rsquo;s privacy controls. You can also contact
-        us using the details below.
+        Depending on where you live, you may have rights to access, correct, export, or delete your personal data, or to
+        object to or restrict certain processing. To exercise these rights — including deleting your account and the data
+        we hold about it — email us at{' '}
+        <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" href="mailto:impactloopapps@gmail.com">
+          impactloopapps@gmail.com
+        </a>
+        . For data processed by Google for ads or billing, you can also use Google&rsquo;s own privacy controls.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">9. Security</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">9. Children&rsquo;s privacy</h2>
       <p className="mt-3 text-muted">
-        We design the Services to minimize the data involved, which is itself a strong privacy
-        safeguard. No method of transmission or storage is completely secure, but we and our
-        third-party providers take reasonable measures to protect the data processed through the
-        Services.
+        The Services are intended for a general audience and are not directed to children under 13. We do not knowingly
+        collect personal information from children. If you believe a child has provided personal information, contact us
+        and we will take appropriate steps.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">10. Changes to this policy</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">10. Security</h2>
       <p className="mt-3 text-muted">
-        We may update this Privacy Policy from time to time. When we do, we will revise the
-        &ldquo;Last updated&rdquo; date above. Significant changes will be reflected here, and your
-        continued use of the Services constitutes acceptance of the updated policy.
+        We take reasonable measures to protect the data processed through the Services, and we rely on established
+        providers (Google, Razorpay, Vercel) for storage, authentication, and payments. No method of transmission or
+        storage is completely secure, but we work to keep the data we hold to a minimum and protected.
       </p>
 
-      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">11. Contact us</h2>
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">11. Changes to this policy</h2>
+      <p className="mt-3 text-muted">
+        We may update this Privacy Policy from time to time. When we do, we will revise the &ldquo;Last updated&rdquo;
+        date above. Significant changes will be reflected here, and your continued use of the Services constitutes
+        acceptance of the updated policy.
+      </p>
+
+      <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">12. Contact us</h2>
       <p className="mt-3 text-muted">
         Questions about privacy? Reach us at{' '}
         <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" href="mailto:impactloopapps@gmail.com">
           impactloopapps@gmail.com
+        </a>{' '}
+        or via our{' '}
+        <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" href="/contact">
+          contact page
         </a>
         .
       </p>

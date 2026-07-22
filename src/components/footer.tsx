@@ -8,6 +8,8 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
       ...APPS.map((a) => ({ href: `/apps/${a.id}`, label: a.name })),
       { href: '/pricing', label: 'Pricing' },
       { href: '/faq', label: 'FAQ' },
+      { href: '/about', label: 'About' },
+      { href: '/changelog', label: 'What’s new' },
     ],
   },
   {
@@ -23,6 +25,8 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
     links: [
       { href: '/terms', label: 'Terms' },
       { href: '/privacy', label: 'Privacy' },
+      { href: '/refund', label: 'Refund & Cancellation' },
+      { href: '/contact', label: 'Contact' },
     ],
   },
 ]

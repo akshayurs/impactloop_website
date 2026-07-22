@@ -1,19 +1,14 @@
 import { AggregateField } from 'firebase-admin/firestore'
 import { adminDb } from './firebase-admin'
-import { expiryFromNow, normalizeCode, PROMO_CODE_RE } from './promo'
 
 function trunc(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : 0
 }
 
+/** Program identity, shared across every app the partner enrolls in. */
 export type InfluencerDoc = {
-  status: 'pending' | 'approved' | 'rejected'
   socialLinks: string[]
   appliedAt: number
-  decidedAt: number | null
-  discountPct: number
-  commissionRates: { signupPaise: number; perPlan: Record<string, number> }
-  promoCode: string | null
 }
 
 function isHttpUrl(s: string): boolean {
@@ -25,80 +20,20 @@ function isHttpUrl(s: string): boolean {
   }
 }
 
+/** Create or update the shared partner identity. App enrollment happens separately. */
 export async function applyAsInfluencer(uid: string, socialLinks: string[], nowMillis: number): Promise<void> {
   if (!Array.isArray(socialLinks) || socialLinks.length < 1 || socialLinks.length > 5 || !socialLinks.every(isHttpUrl)) {
     throw new Error('provide 1-5 valid social links (http/https URLs)')
   }
-  const snap = await adminDb().doc(`influencers/${uid}`).get()
-  const status = snap.exists ? (snap.data() as InfluencerDoc).status : null
-  if (status === 'pending' || status === 'approved') throw new Error('application already exists')
-  const doc: InfluencerDoc = {
-    status: 'pending',
-    socialLinks,
-    appliedAt: nowMillis,
-    decidedAt: null,
-    discountPct: 10,
-    commissionRates: { signupPaise: 0, perPlan: {} },
-    promoCode: null,
-  }
-  await adminDb().doc(`influencers/${uid}`).set(doc)
+  const ref = adminDb().doc(`influencers/${uid}`)
+  const snap = await ref.get()
+  const appliedAt = snap.exists ? ((snap.data() as InfluencerDoc).appliedAt ?? nowMillis) : nowMillis
+  await ref.set({ socialLinks, appliedAt }, { merge: true })
 }
 
 export async function getInfluencer(uid: string): Promise<InfluencerDoc | null> {
   const snap = await adminDb().doc(`influencers/${uid}`).get()
   return snap.exists ? (snap.data() as InfluencerDoc) : null
-}
-
-export async function decideInfluencer(uid: string, decision: 'approved' | 'rejected', nowMillis: number): Promise<void> {
-  const snap = await adminDb().doc(`influencers/${uid}`).get()
-  if (!snap.exists || (snap.data() as InfluencerDoc).status !== 'pending') {
-    throw new Error('only pending applications can be decided')
-  }
-  await adminDb().doc(`influencers/${uid}`).set({ status: decision, decidedAt: nowMillis }, { merge: true })
-}
-
-export async function updateInfluencerRates(
-  uid: string,
-  rates: { discountPct?: number; signupPaise?: number; perPlan?: Record<string, number> },
-): Promise<void> {
-  const patch: Record<string, unknown> = {}
-  if (rates.discountPct !== undefined) {
-    if (!Number.isInteger(rates.discountPct) || rates.discountPct < 0 || rates.discountPct > 90) {
-      throw new Error('discountPct must be integer 0-90')
-    }
-    patch.discountPct = rates.discountPct
-  }
-  if (rates.signupPaise !== undefined) {
-    if (!Number.isInteger(rates.signupPaise) || rates.signupPaise < 0) throw new Error('signupPaise must be non-negative integer')
-    patch['commissionRates.signupPaise'] = rates.signupPaise
-  }
-  if (rates.perPlan !== undefined) {
-    for (const [planId, paise] of Object.entries(rates.perPlan)) {
-      if (!Number.isInteger(paise) || paise < 0) throw new Error(`perPlan.${planId} must be non-negative integer`)
-    }
-    patch['commissionRates.perPlan'] = rates.perPlan
-  }
-  if (Object.keys(patch).length === 0) throw new Error('empty rates patch')
-  await adminDb().doc(`influencers/${uid}`).set(patch, { merge: true })
-}
-
-export async function changePromoCode(
-  uid: string,
-  rawCode: string,
-  nowMillis: number,
-  expiryMonths: number,
-): Promise<{ code: string; expiresAt: number }> {
-  const code = normalizeCode(rawCode)
-  if (!PROMO_CODE_RE.test(code)) throw new Error('code must be 4-16 letters/numbers')
-  const inf = await getInfluencer(uid)
-  if (!inf || inf.status !== 'approved') throw new Error('approved influencers only')
-  const existing = await adminDb().doc(`promoCodes/${code}`).get()
-  if (existing.exists) throw new Error('code already taken')
-  if (inf.promoCode) await adminDb().doc(`promoCodes/${inf.promoCode}`).delete()
-  const expiresAt = expiryFromNow(nowMillis, expiryMonths)
-  await adminDb().doc(`promoCodes/${code}`).set({ code, ownerUid: uid, active: true, createdAt: nowMillis, expiresAt })
-  await adminDb().doc(`influencers/${uid}`).set({ promoCode: code }, { merge: true })
-  return { code, expiresAt }
 }
 
 export function suggestCodes(displayName: string | null, uid: string): string[] {
@@ -112,33 +47,61 @@ export async function recordReferral(input: {
   id: string
   code: string
   ownerUid: string
+  appId: string
   referredUid: string
   type: 'signup' | 'subscription' | 'lifetime'
   planId: string | null
   commissionPaise: number
   nowMillis: number
-}): Promise<void> {
+}): Promise<boolean> {
   const ref = adminDb().doc(`referrals/${input.id}`)
-  if ((await ref.get()).exists) return
-  await ref.set({
-    code: input.code,
-    ownerUid: input.ownerUid,
-    referredUid: input.referredUid,
-    type: input.type,
-    planId: input.planId,
-    commissionPaise: input.commissionPaise,
-    createdAt: input.nowMillis,
-  })
+  // Atomic create: two concurrent deliveries of the same event can't both credit.
+  try {
+    await ref.create({
+      code: input.code,
+      ownerUid: input.ownerUid,
+      appId: input.appId,
+      referredUid: input.referredUid,
+      type: input.type,
+      planId: input.planId,
+      commissionPaise: input.commissionPaise,
+      createdAt: input.nowMillis,
+    })
+    return true
+  } catch (err) {
+    if ((err as { code?: number })?.code === 6) return false // Firestore ALREADY_EXISTS
+    throw err
+  }
+}
+
+/** Void a referral's commission after a refund/chargeback. The aggregate balance
+    (SUM of commissionPaise) then excludes it; the record is kept for audit. */
+export async function reverseReferral(referralId: string, nowMillis: number): Promise<boolean> {
+  const ref = adminDb().doc(`referrals/${referralId}`)
+  const snap = await ref.get()
+  if (!snap.exists) return false
+  const data = snap.data() ?? {}
+  if (data.reversed === true) return false
+  await ref.set(
+    {
+      reversed: true,
+      reversedAt: nowMillis,
+      originalCommissionPaise: typeof data.commissionPaise === 'number' ? data.commissionPaise : 0,
+      commissionPaise: 0,
+    },
+    { merge: true },
+  )
+  return true
 }
 
 const EARNINGS_PAGE = 20
 
-function pageCursor(docs: FirebaseFirestore.QueryDocumentSnapshot[], field: string, limit: number): string | null {
+export function pageCursor(docs: FirebaseFirestore.QueryDocumentSnapshot[], field: string, limit: number): string | null {
   const last = docs[docs.length - 1]
   return docs.length === limit && last ? `${last.data()[field]}_${last.id}` : null
 }
 
-function parsePageCursor(cursor: string | undefined | null): { value: number; id: string } | null {
+export function parsePageCursor(cursor: string | undefined | null): { value: number; id: string } | null {
   if (!cursor) return null
   const sep = cursor.indexOf('_')
   if (sep < 1) return null
@@ -179,15 +142,63 @@ export async function listPayouts(uid: string, limit = EARNINGS_PAGE, cursor?: s
   }
 }
 
+export type PayoutRequest = { amountPaise: number; requestedAt: number; upiId: string }
+
+const UPI_ID_RE = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
+
+export function normalizeUpiId(raw: unknown): string {
+  const upiId = typeof raw === 'string' ? raw.trim() : ''
+  if (!UPI_ID_RE.test(upiId)) throw new Error('enter a valid UPI ID (e.g. name@bank)')
+  return upiId
+}
+
+function pendingRequest(data: FirebaseFirestore.DocumentData | undefined): PayoutRequest | null {
+  if (!data || data.status !== 'pending') return null
+  return { amountPaise: trunc(data.amountPaise), requestedAt: trunc(data.requestedAt), upiId: String(data.upiId ?? '') }
+}
+
+export async function getPayoutRequest(uid: string): Promise<PayoutRequest | null> {
+  const snap = await adminDb().doc(`payoutRequests/${uid}`).get()
+  return snap.exists ? pendingRequest(snap.data()) : null
+}
+
+/** Admin declines a pending payout request without paying it (kept for the audit trail). */
+export async function declinePayoutRequest(uid: string, nowMillis: number): Promise<void> {
+  const ref = adminDb().doc(`payoutRequests/${uid}`)
+  const snap = await ref.get()
+  if (!snap.exists || snap.data()?.status !== 'pending') throw new Error('no pending payout request')
+  await ref.set({ status: 'rejected', decidedAt: nowMillis }, { merge: true })
+}
+
+export async function requestPayout(uid: string, minPayoutPaise: number, upiId: string, nowMillis: number): Promise<PayoutRequest> {
+  const db = adminDb()
+  // One transaction: re-check for an open request and recompute the balance against the
+  // live ledger before writing, so two concurrent requests can't both open.
+  return db.runTransaction(async (tx) => {
+    const reqRef = db.doc(`payoutRequests/${uid}`)
+    const existing = await tx.get(reqRef)
+    if (existing.exists && existing.data()?.status === 'pending') throw new Error('payout already requested')
+    const commQuery = db.collection('referrals').where('ownerUid', '==', uid).aggregate({ total: AggregateField.sum('commissionPaise') })
+    const paidQuery = db.collection('payouts').where('influencerUid', '==', uid).aggregate({ total: AggregateField.sum('amountPaise') })
+    const [commAgg, paidAgg] = await Promise.all([tx.get(commQuery), tx.get(paidQuery)])
+    const balancePaise = trunc(commAgg.data().total) - trunc(paidAgg.data().total)
+    if (balancePaise <= 0) throw new Error('no balance available to withdraw')
+    if (balancePaise < minPayoutPaise) throw new Error(`minimum payout is ${minPayoutPaise} paise`)
+    tx.set(reqRef, { influencerUid: uid, amountPaise: balancePaise, status: 'pending', requestedAt: nowMillis, upiId })
+    return { amountPaise: balancePaise, requestedAt: nowMillis, upiId }
+  })
+}
+
 export async function getEarnings(uid: string) {
   const db = adminDb()
   const referralsQuery = db.collection('referrals').where('ownerUid', '==', uid)
   const payoutsQuery = db.collection('payouts').where('influencerUid', '==', uid)
-  const [commAgg, paidAgg, refPage, payPage] = await Promise.all([
+  const [commAgg, paidAgg, refPage, payPage, reqSnap] = await Promise.all([
     referralsQuery.aggregate({ total: AggregateField.sum('commissionPaise') }).get(),
     payoutsQuery.aggregate({ total: AggregateField.sum('amountPaise') }).get(),
     listReferrals(uid),
     listPayouts(uid),
+    db.doc(`payoutRequests/${uid}`).get(),
   ])
   const totalCommissionPaise = trunc(commAgg.data().total)
   const paidPaise = trunc(paidAgg.data().total)
@@ -199,6 +210,7 @@ export async function getEarnings(uid: string) {
     referralsCursor: refPage.nextCursor,
     payouts: payPage.payouts,
     payoutsCursor: payPage.nextCursor,
+    payoutRequest: reqSnap.exists ? pendingRequest(reqSnap.data()) : null,
   }
 }
 
@@ -211,6 +223,17 @@ export async function recordPayout(influencerUid: string, amountPaise: number, n
     const [commAgg, paidAgg] = await Promise.all([tx.get(commQuery), tx.get(paidQuery)])
     const balancePaise = trunc(commAgg.data().total) - trunc(paidAgg.data().total)
     if (amountPaise > balancePaise) throw new Error(`amount exceeds balance (${balancePaise})`)
-    tx.set(db.doc(`payouts/${influencerUid}-${nowMillis}`), { influencerUid, amountPaise, note, paidAt: nowMillis })
+    // Snapshot the ledger this payout settled against, for reconciliation/audit.
+    tx.set(db.doc(`payouts/${influencerUid}-${nowMillis}`), {
+      influencerUid,
+      amountPaise,
+      note,
+      paidAt: nowMillis,
+      balanceBeforePaise: balancePaise,
+      commissionTotalPaise: trunc(commAgg.data().total),
+    })
+    // Clear any pending request in the same transaction — no window where a payout is
+    // recorded but the request lingers (which invited a double-pay).
+    tx.delete(db.doc(`payoutRequests/${influencerUid}`))
   })
 }

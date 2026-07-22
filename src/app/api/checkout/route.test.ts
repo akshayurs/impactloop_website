@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { requireUser, getPlanById, createSubscription, createOrder, getInfluencer, entitlementGet, docSet, docGet } = vi.hoisted(() => ({
+const { requireUser, getPlanById, createSubscription, createOrder, getEnrollment, getPartnerConfig, entitlementGet, docSet, docGet } = vi.hoisted(() => ({
   requireUser: vi.fn(),
   getPlanById: vi.fn(),
   createSubscription: vi.fn(),
   createOrder: vi.fn(),
-  getInfluencer: vi.fn(),
+  getEnrollment: vi.fn(),
+  getPartnerConfig: vi.fn(),
   entitlementGet: vi.fn(),
   docSet: vi.fn(),
   docGet: vi.fn(),
@@ -16,7 +17,8 @@ vi.mock('@/lib/server/verify-token', () => ({
   UnauthorizedError: class extends Error { status = 401 },
 }))
 vi.mock('@/lib/server/plans-store', () => ({ getPlanById }))
-vi.mock('@/lib/server/influencer', () => ({ getInfluencer }))
+vi.mock('@/lib/server/influencer-apps', () => ({ getEnrollment }))
+vi.mock('@/lib/server/partner-config', () => ({ getPartnerConfig }))
 vi.mock('@/lib/server/razorpay', () => ({
   createSubscription,
   createOrder,
@@ -50,10 +52,11 @@ describe('POST /api/checkout', () => {
     entitlementGet.mockResolvedValue({ exists: false, data: () => undefined })
     docGet.mockImplementation(async (path: string) => {
       if (path === 'promoCodes/AK10X')
-        return { exists: true, data: () => ({ code: 'AK10X', ownerUid: 'inf1', active: true, createdAt: 0, expiresAt: Date.now() + 1e9 }) }
+        return { exists: true, data: () => ({ code: 'AK10X', ownerUid: 'inf1', appId: 'crackloop', active: true, createdAt: 0, expiresAt: Date.now() + 1e9 }) }
       return { exists: false, data: () => undefined }
     })
-    getInfluencer.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: {} } })
+    getEnrollment.mockResolvedValue({ status: 'approved', commissionRates: { signupPaise: 0, perPlan: {} } })
+    getPartnerConfig.mockResolvedValue({ discountPct: 10, enabled: true })
   })
 
   it('401 when unauthenticated', async () => {
@@ -137,7 +140,7 @@ describe('POST /api/checkout', () => {
     requireUser.mockResolvedValue({ uid: 'inf1', email: null })
     expect((await POST(req({ planId: PLAN.id, promoCode: 'AK10X' }))).status).toBe(400)
     requireUser.mockResolvedValue({ uid: 'u1', email: null })
-    getInfluencer.mockResolvedValue({ status: 'pending', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: {} } })
+    getEnrollment.mockResolvedValue({ status: 'pending', commissionRates: { signupPaise: 0, perPlan: {} } })
     expect((await POST(req({ planId: PLAN.id, promoCode: 'AK10X' }))).status).toBe(400)
   })
 })

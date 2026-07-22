@@ -7,6 +7,7 @@ const SECTIONS = [
   { href: '/admin/users', label: 'Users' },
   { href: '/admin/influencers', label: 'Influencers' },
   { href: '/admin/plans', label: 'Pricing' },
+  { href: '/admin/emails', label: 'Emails' },
   { href: '/admin/settings', label: 'Settings' },
   { href: '/admin/webhooks', label: 'Webhooks' },
 ]

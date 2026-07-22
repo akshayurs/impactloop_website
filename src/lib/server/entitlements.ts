@@ -74,3 +74,20 @@ export function buildLifetimeEntitlement(input: { plan: Plan; nowMillis: number 
 export async function writeEntitlement(uid: string, appId: string, doc: EntitlementDoc): Promise<void> {
   await adminDb().doc(`users/${uid}/apps/${appId}`).set(doc, { merge: true })
 }
+
+/** Remove access without deleting the record — used on refund, revoke, or cancellation. */
+export async function clearEntitlement(
+  uid: string,
+  appId: string,
+  status: 'revoked' | 'refunded' | 'cancelled',
+): Promise<void> {
+  await adminDb()
+    .doc(`users/${uid}/apps/${appId}`)
+    .set(
+      {
+        subscription: { status, autoRenewing: false, expiryTimeMillis: null },
+        entitlements: NO_GRANTS,
+      },
+      { merge: true },
+    )
+}

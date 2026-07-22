@@ -30,21 +30,13 @@ vi.mock('./firebase-admin', () => {
         fn({
           get: (query: { __agg: string }) => aggGet(query.__agg),
           set: (_ref: unknown, data: unknown) => txSet(data),
+          delete: () => {},
         }),
     }),
   }
 })
 
-import {
-  applyAsInfluencer,
-  changePromoCode,
-  decideInfluencer,
-  getEarnings,
-  recordPayout,
-  recordReferral,
-  suggestCodes,
-  updateInfluencerRates,
-} from './influencer'
+import { applyAsInfluencer, getEarnings, recordPayout, recordReferral, reverseReferral, suggestCodes } from './influencer'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -54,76 +46,22 @@ beforeEach(() => {
 })
 
 describe('applyAsInfluencer', () => {
-  it('writes pending application with defaults', async () => {
+  it('writes shared identity with social links, merging', async () => {
     await applyAsInfluencer('u1', ['https://instagram.com/x'], 5)
     expect(docSet).toHaveBeenCalledWith(
       'influencers/u1',
-      expect.objectContaining({ status: 'pending', discountPct: 10, promoCode: null, appliedAt: 5 }),
-      undefined,
-    )
-  })
-  it('rejects invalid links and re-application while pending/approved', async () => {
-    await expect(applyAsInfluencer('u1', [], 5)).rejects.toThrow(/link/)
-    await expect(applyAsInfluencer('u1', ['notaurl'], 5)).rejects.toThrow(/link/)
-    docGet.mockResolvedValue({ exists: true, data: () => ({ status: 'pending' }) })
-    await expect(applyAsInfluencer('u1', ['https://x.com/a'], 5)).rejects.toThrow(/already/)
-  })
-  it('rejected applicant may re-apply', async () => {
-    docGet.mockResolvedValue({ exists: true, data: () => ({ status: 'rejected' }) })
-    await applyAsInfluencer('u1', ['https://x.com/a'], 9)
-    expect(docSet).toHaveBeenCalled()
-  })
-})
-
-describe('decideInfluencer / updateInfluencerRates', () => {
-  it('approves only from pending', async () => {
-    docGet.mockResolvedValue({ exists: true, data: () => ({ status: 'pending' }) })
-    await decideInfluencer('u1', 'approved', 7)
-    expect(docSet).toHaveBeenCalledWith('influencers/u1', { status: 'approved', decidedAt: 7 }, { merge: true })
-    docGet.mockResolvedValue({ exists: true, data: () => ({ status: 'approved' }) })
-    await expect(decideInfluencer('u1', 'approved', 8)).rejects.toThrow(/pending/)
-  })
-  it('validates rates', async () => {
-    await updateInfluencerRates('u1', { discountPct: 20, signupPaise: 500, perPlan: { p1: 1000 } })
-    expect(docSet).toHaveBeenCalledWith(
-      'influencers/u1',
-      { discountPct: 20, 'commissionRates.signupPaise': 500, 'commissionRates.perPlan': { p1: 1000 } },
+      expect.objectContaining({ socialLinks: ['https://instagram.com/x'], appliedAt: 5 }),
       { merge: true },
     )
-    await expect(updateInfluencerRates('u1', { discountPct: 95 })).rejects.toThrow(/discountPct/)
-    await expect(updateInfluencerRates('u1', { signupPaise: -5 })).rejects.toThrow(/signupPaise/)
-    await expect(updateInfluencerRates('u1', { perPlan: { p1: 10.5 } })).rejects.toThrow(/perPlan/)
   })
-})
-
-describe('changePromoCode', () => {
-  it('approved influencer claims available code, old deleted', async () => {
-    docGet.mockImplementation(async (path: string) => {
-      if (path === 'influencers/u1') return { exists: true, data: () => ({ status: 'approved', promoCode: 'OLD1' }) }
-      if (path === 'promoCodes/NEW42') return { exists: false }
-      return { exists: false }
-    })
-    const res = await changePromoCode('u1', ' new42 ', 1000, 3)
-    expect(res.code).toBe('NEW42')
-    expect(docDelete).toHaveBeenCalledWith('promoCodes/OLD1')
-    expect(docSet).toHaveBeenCalledWith(
-      'promoCodes/NEW42',
-      { code: 'NEW42', ownerUid: 'u1', active: true, createdAt: 1000, expiresAt: 1000 + 3 * 30 * 86_400_000 },
-      undefined,
-    )
-    expect(docSet).toHaveBeenCalledWith('influencers/u1', { promoCode: 'NEW42' }, { merge: true })
+  it('preserves the original appliedAt on re-apply', async () => {
+    docGet.mockResolvedValue({ exists: true, data: () => ({ appliedAt: 100, socialLinks: [] }) })
+    await applyAsInfluencer('u1', ['https://x.com/a'], 999)
+    expect(docSet).toHaveBeenCalledWith('influencers/u1', expect.objectContaining({ appliedAt: 100 }), { merge: true })
   })
-  it('rejects taken code, bad shape, non-approved', async () => {
-    docGet.mockImplementation(async (path: string) => {
-      if (path === 'influencers/u1') return { exists: true, data: () => ({ status: 'approved', promoCode: null }) }
-      return { exists: true, data: () => ({ ownerUid: 'other' }) }
-    })
-    await expect(changePromoCode('u1', 'TAKEN1', 1, 3)).rejects.toThrow(/taken/)
-    await expect(changePromoCode('u1', 'x', 1, 3)).rejects.toThrow(/code/)
-    docGet.mockImplementation(async (path: string) =>
-      path === 'influencers/u1' ? { exists: true, data: () => ({ status: 'pending' }) } : { exists: false },
-    )
-    await expect(changePromoCode('u1', 'GOOD42', 1, 3)).rejects.toThrow(/approved/)
+  it('rejects invalid links', async () => {
+    await expect(applyAsInfluencer('u1', [], 5)).rejects.toThrow(/link/)
+    await expect(applyAsInfluencer('u1', ['notaurl'], 5)).rejects.toThrow(/link/)
   })
 })
 
@@ -140,13 +78,25 @@ describe('suggestCodes', () => {
 })
 
 describe('recordReferral / earnings / payout', () => {
-  it('recordReferral is create-if-absent', async () => {
-    docGet.mockResolvedValue({ exists: true, data: () => ({}) })
-    await recordReferral({ id: 'pay-p1', code: 'C', ownerUid: 'u1', referredUid: 'u2', type: 'subscription', planId: 'p', commissionPaise: 100, nowMillis: 1 })
-    expect(docSet).not.toHaveBeenCalled()
-    docGet.mockResolvedValue({ exists: false })
-    await recordReferral({ id: 'pay-p1', code: 'C', ownerUid: 'u1', referredUid: 'u2', type: 'subscription', planId: 'p', commissionPaise: 100, nowMillis: 1 })
-    expect(docSet).toHaveBeenCalledWith('referrals/pay-p1', expect.objectContaining({ commissionPaise: 100 }), undefined)
+  it('recordReferral is atomic create-if-absent', async () => {
+    docCreate.mockResolvedValueOnce(undefined)
+    const first = await recordReferral({ id: 'pay-p1', code: 'C', ownerUid: 'u1', appId: 'crackloop', referredUid: 'u2', type: 'subscription', planId: 'p', commissionPaise: 100, nowMillis: 1 })
+    expect(first).toBe(true)
+    expect(docCreate).toHaveBeenCalledWith('referrals/pay-p1', expect.objectContaining({ commissionPaise: 100, appId: 'crackloop' }))
+    docCreate.mockRejectedValueOnce(Object.assign(new Error('exists'), { code: 6 }))
+    const second = await recordReferral({ id: 'pay-p1', code: 'C', ownerUid: 'u1', appId: 'crackloop', referredUid: 'u2', type: 'subscription', planId: 'p', commissionPaise: 100, nowMillis: 1 })
+    expect(second).toBe(false)
+  })
+  it('reverseReferral zeroes commission once (idempotent)', async () => {
+    docGet.mockResolvedValueOnce({ exists: true, data: () => ({ commissionPaise: 2000 }) })
+    expect(await reverseReferral('lifetime-u2-crackloop', 5)).toBe(true)
+    expect(docSet).toHaveBeenCalledWith(
+      'referrals/lifetime-u2-crackloop',
+      expect.objectContaining({ reversed: true, commissionPaise: 0, originalCommissionPaise: 2000 }),
+      { merge: true },
+    )
+    docGet.mockResolvedValueOnce({ exists: true, data: () => ({ reversed: true }) })
+    expect(await reverseReferral('lifetime-u2-crackloop', 6)).toBe(false)
   })
   it('earnings totals come from full-collection aggregation, not capped lists', async () => {
     aggGet.mockImplementation((name: string) => Promise.resolve({ data: () => ({ total: name === 'referrals' ? 500 : 100 }) }))
@@ -173,6 +123,13 @@ describe('recordReferral / earnings / payout', () => {
   it('payout within balance writes payout in a transaction', async () => {
     aggGet.mockImplementation((name: string) => Promise.resolve({ data: () => ({ total: name === 'referrals' ? 300 : 100 }) }))
     await recordPayout('u1', 200, 'upi', 7)
-    expect(txSet).toHaveBeenCalledWith({ influencerUid: 'u1', amountPaise: 200, note: 'upi', paidAt: 7 })
+    expect(txSet).toHaveBeenCalledWith({
+      influencerUid: 'u1',
+      amountPaise: 200,
+      note: 'upi',
+      paidAt: 7,
+      balanceBeforePaise: 200,
+      commissionTotalPaise: 300,
+    })
   })
 })

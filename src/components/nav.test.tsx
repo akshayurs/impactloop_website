@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { ThemeProvider } from './theme-provider'
 import { Nav } from './nav'
 
+vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/lib/firebase/client', () => ({ getFirebaseAuth: () => ({}) }))
 vi.mock('firebase/auth', () => ({
   GoogleAuthProvider: vi.fn(),

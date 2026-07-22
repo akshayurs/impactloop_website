@@ -1,20 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { requireUser, verifyPaymentSignature, getPlanById, writeEntitlement, orderGet, docSet, getInfluencer, recordReferral } = vi.hoisted(() => ({
+const { requireUser, verifyPaymentSignature, getPlanById, writeEntitlement, orderGet, docSet, getEnrollment, recordReferral } = vi.hoisted(() => ({
   requireUser: vi.fn(),
   verifyPaymentSignature: vi.fn(),
   getPlanById: vi.fn(),
   writeEntitlement: vi.fn(),
   orderGet: vi.fn(),
   docSet: vi.fn(),
-  getInfluencer: vi.fn(),
+  getEnrollment: vi.fn(),
   recordReferral: vi.fn(),
 }))
 
 vi.mock('@/lib/server/verify-token', () => ({ requireUser, UnauthorizedError: class extends Error { status = 401 } }))
 vi.mock('@/lib/server/razorpay', () => ({ verifyPaymentSignature }))
 vi.mock('@/lib/server/plans-store', () => ({ getPlanById }))
-vi.mock('@/lib/server/influencer', () => ({ getInfluencer, recordReferral }))
+vi.mock('@/lib/server/influencer', () => ({ recordReferral }))
+vi.mock('@/lib/server/influencer-apps', () => ({ getEnrollment }))
 vi.mock('@/lib/server/entitlements', async (importOriginal) => {
   const actual: any = await importOriginal()
   return { ...actual, writeEntitlement }
@@ -41,7 +42,7 @@ describe('POST /api/checkout/verify', () => {
     requireUser.mockResolvedValue({ uid: 'u1', email: null })
     verifyPaymentSignature.mockReturnValue(true)
     getPlanById.mockResolvedValue(LIFE_PLAN)
-    getInfluencer.mockResolvedValue(null)
+    getEnrollment.mockResolvedValue(null)
     orderGet.mockResolvedValue({ exists: true, data: () => ({ uid: 'u1', appId: 'crackloop', planId: 'life', amountPaise: 199900, status: 'created' }) })
   })
 
@@ -79,11 +80,11 @@ describe('POST /api/checkout/verify', () => {
       exists: true,
       data: () => ({ uid: 'u1', appId: 'crackloop', planId: 'life', amountPaise: 179910, status: 'created', promoCode: 'AK10X', promoOwnerUid: 'inf1' }),
     })
-    getInfluencer.mockResolvedValue({ status: 'approved', discountPct: 10, commissionRates: { signupPaise: 0, perPlan: { life: 20000 } } })
+    getEnrollment.mockResolvedValue({ status: 'approved', commissionRates: { signupPaise: 0, perPlan: { life: 20000 } } })
     const res = await POST(req(GOOD))
     expect(res.status).toBe(200)
     expect(recordReferral).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'pay-pay_1', type: 'lifetime', ownerUid: 'inf1', referredUid: 'u1', commissionPaise: 20000,
+      id: 'lifetime-u1-crackloop', type: 'lifetime', ownerUid: 'inf1', appId: 'crackloop', referredUid: 'u1', commissionPaise: 20000,
     }))
   })
 })

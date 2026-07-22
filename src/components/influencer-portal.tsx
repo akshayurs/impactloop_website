@@ -10,60 +10,56 @@ import { formatINR } from '@/lib/format'
 import { useAuth } from '@/lib/auth-context'
 import { adminFetch } from './admin/admin-fetch'
 
-type InfluencerMe = {
-  influencer: {
-    status: 'pending' | 'approved' | 'rejected'
-    promoCode: string | null
-    discountPct: number
-    commissionRates: { signupPaise: number; perPlan: Record<string, number> }
-    socialLinks: string[]
-    appliedAt: number
-    decidedAt: number | null
-  } | null
+type AppEnrollment = {
+  appId: string
+  name: string
+  status: 'pending' | 'approved' | 'rejected'
+  promoCode: string | null
+  discountPct: number
+  commissionPaise: number
   suggestions: string[]
-  earnings: {
-    totalCommissionPaise: number
-    paidPaise: number
-    balancePaise: number
-    referrals: Array<{
-      id: string
-      code: string
-      referredUid: string
-      type: 'signup' | 'subscription' | 'lifetime'
-      planId: string | null
-      commissionPaise: number
-      createdAt: number
-    }>
-    payouts: Array<{
-      id: string
-      amountPaise: number
-      note: string
-      paidAt: number
-    }>
-    referralsCursor: string | null
-    payoutsCursor: string | null
-  } | null
 }
 
-type Referral = NonNullable<InfluencerMe['earnings']>['referrals'][number]
-type Payout = NonNullable<InfluencerMe['earnings']>['payouts'][number]
+type Earnings = {
+  totalCommissionPaise: number
+  paidPaise: number
+  balancePaise: number
+  referrals: Array<{ id: string; appId?: string; type: string; planId: string | null; commissionPaise: number; createdAt: number }>
+  payouts: Array<{ id: string; amountPaise: number; note: string; paidAt: number }>
+  referralsCursor: string | null
+  payoutsCursor: string | null
+  payoutRequest: { amountPaise: number; requestedAt: number; upiId: string } | null
+}
+
+type Me = {
+  profile: { socialLinks: string[]; appliedAt: number } | null
+  apps: AppEnrollment[]
+  availableApps: Array<{ appId: string; name: string }>
+  earnings: Earnings | null
+  minPayoutPaise: number
+}
+
+type Referral = Earnings['referrals'][number]
+type Payout = Earnings['payouts'][number]
+
+function origin(): string {
+  return typeof window !== 'undefined' ? window.location.origin : ''
+}
 
 export function InfluencerPortal() {
   const { user, loading, signIn } = useAuth()
-  const [data, setData] = useState<InfluencerMe | null>(null)
+  const [data, setData] = useState<Me | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [editApp, setEditApp] = useState<string | null>(null)
   const [customCode, setCustomCode] = useState('')
-  const [codeError, setCodeError] = useState<string | null>(null)
-  const [codeLoading, setCodeLoading] = useState(false)
-  const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [upiId, setUpiId] = useState('')
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [referralsCursor, setReferralsCursor] = useState<string | null>(null)
-  const [referralsPending, setReferralsPending] = useState(false)
-  const [referralsError, setReferralsError] = useState(false)
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [payoutsCursor, setPayoutsCursor] = useState<string | null>(null)
-  const [payoutsPending, setPayoutsPending] = useState(false)
-  const [payoutsError, setPayoutsError] = useState(false)
+  const [pageBusy, setPageBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -71,7 +67,7 @@ export function InfluencerPortal() {
     try {
       const res = await adminFetch(user, '/api/influencer/me')
       if (!res.ok) throw new Error('failed')
-      const json: InfluencerMe = await res.json()
+      const json: Me = await res.json()
       setData(json)
       setReferrals(json.earnings?.referrals ?? [])
       setReferralsCursor(json.earnings?.referralsCursor ?? null)
@@ -86,85 +82,91 @@ export function InfluencerPortal() {
     void load()
   }, [load])
 
-  async function loadMoreReferrals() {
-    if (!user || !referralsCursor) return
-    setReferralsPending(true)
-    setReferralsError(false)
-    try {
-      const res = await adminFetch(user, `/api/influencer/referrals?cursor=${encodeURIComponent(referralsCursor)}`)
-      if (!res.ok) throw new Error('failed')
-      const json: { referrals: Referral[]; nextCursor: string | null } = await res.json()
-      setReferrals((prev) => {
-        const seen = new Set(prev.map((r) => r.id))
-        return [...prev, ...json.referrals.filter((r) => !seen.has(r.id))]
-      })
-      setReferralsCursor(json.nextCursor)
-    } catch {
-      setReferralsError(true)
-    } finally {
-      setReferralsPending(false)
-    }
-  }
-
-  async function loadMorePayouts() {
-    if (!user || !payoutsCursor) return
-    setPayoutsPending(true)
-    setPayoutsError(false)
-    try {
-      const res = await adminFetch(user, `/api/influencer/payouts?cursor=${encodeURIComponent(payoutsCursor)}`)
-      if (!res.ok) throw new Error('failed')
-      const json: { payouts: Payout[]; nextCursor: string | null } = await res.json()
-      setPayouts((prev) => {
-        const seen = new Set(prev.map((p) => p.id))
-        return [...prev, ...json.payouts.filter((p) => !seen.has(p.id))]
-      })
-      setPayoutsCursor(json.nextCursor)
-    } catch {
-      setPayoutsError(true)
-    } finally {
-      setPayoutsPending(false)
-    }
-  }
-
-  async function pickCode(code: string) {
+  async function enrollApp(appId: string) {
     if (!user) return
-    setCodeError(null)
-    setActionMsg(null)
-    setCodeLoading(true)
+    setBusy(`enroll:${appId}`)
+    setMsg(null)
     try {
-      const res = await adminFetch(user, '/api/influencer/promo-code', {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      })
+      const res = await adminFetch(user, '/api/influencer/enroll', { method: 'POST', body: JSON.stringify({ appId }) })
+      const json = await res.json().catch(() => ({}))
+      setMsg(res.ok ? 'Enrolled — pending review.' : (json.error ?? 'Could not enroll.'))
+      if (res.ok) await load()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function pickCode(appId: string, code: string) {
+    if (!user) return
+    setBusy(`code:${appId}`)
+    setMsg(null)
+    try {
+      const res = await adminFetch(user, '/api/influencer/promo-code', { method: 'POST', body: JSON.stringify({ appId, code }) })
       const json = await res.json().catch(() => ({}))
       if (res.ok) {
-        setActionMsg('Code set!')
+        setMsg('Code set!')
+        setEditApp(null)
         setCustomCode('')
         await load()
       } else {
-        setCodeError(json.error ?? 'Failed to set code')
+        setMsg(json.error ?? 'Failed to set code')
       }
-    } catch {
-      setCodeError('Failed to set code')
     } finally {
-      setCodeLoading(false)
+      setBusy(null)
     }
   }
 
-  async function copyShareLink() {
-    if (!data?.influencer?.promoCode) return
-    const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/?ref=${data.influencer.promoCode}`
+  async function requestPayout() {
+    if (!user) return
+    setBusy('payout')
+    setMsg(null)
+    try {
+      const res = await adminFetch(user, '/api/influencer/payout-request', { method: 'POST', body: JSON.stringify({ upiId: upiId.trim() }) })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setMsg('Payout requested — we’ll process it soon.')
+        setUpiId('')
+        await load()
+      } else {
+        setMsg(json.error ?? 'Could not request payout.')
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function copyLink(url: string) {
     try {
       await navigator.clipboard.writeText(url)
-      setActionMsg('Link copied!')
+      setMsg('Link copied!')
     } catch {
-      setActionMsg('Could not copy link')
+      setMsg('Could not copy link')
+    }
+  }
+
+  async function loadMore(kind: 'referrals' | 'payouts') {
+    const cursor = kind === 'referrals' ? referralsCursor : payoutsCursor
+    if (!user || !cursor) return
+    setPageBusy(true)
+    try {
+      const res = await adminFetch(user, `/api/influencer/${kind}?cursor=${encodeURIComponent(cursor)}`)
+      if (!res.ok) throw new Error('failed')
+      const json = await res.json()
+      if (kind === 'referrals') {
+        setReferrals((prev) => [...prev, ...(json.referrals as Referral[]).filter((r) => !prev.some((p) => p.id === r.id))])
+        setReferralsCursor(json.nextCursor)
+      } else {
+        setPayouts((prev) => [...prev, ...(json.payouts as Payout[]).filter((r) => !prev.some((p) => p.id === r.id))])
+        setPayoutsCursor(json.nextCursor)
+      }
+    } finally {
+      setPageBusy(false)
     }
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading influencer portal">
+      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading partner portal">
         <div className="skeleton h-6 w-32 rounded-lg" />
         <div className="skeleton mt-6 h-32 rounded-2xl" />
       </div>
@@ -175,7 +177,7 @@ export function InfluencerPortal() {
     return (
       <Card className="mx-auto mt-16 max-w-sm text-center">
         <p className="kicker justify-center">Partner portal</p>
-        <p className="mt-4 text-sm text-muted">Sign in to view your promo code and earnings.</p>
+        <p className="mt-4 text-sm text-muted">Sign in to view your apps and earnings.</p>
         <div className="mt-6">
           <Button onClick={() => void signIn()}>Sign in</Button>
         </div>
@@ -197,21 +199,19 @@ export function InfluencerPortal() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading influencer portal">
+      <div className="mx-auto max-w-sm px-4 py-16" aria-busy="true" aria-label="Loading partner portal">
         <div className="skeleton h-6 w-32 rounded-lg" />
         <div className="skeleton mt-6 h-32 rounded-2xl" />
       </div>
     )
   }
 
-  const { influencer, suggestions, earnings } = data
-
-  if (!influencer) {
+  if (!data.profile) {
     return (
       <Card className="mx-auto mt-16 max-w-sm text-center">
         <p className="kicker justify-center">Become a partner</p>
         <p className="mt-4 font-display text-2xl font-bold text-fg">Earn on every referral</p>
-        <p className="mt-2 text-sm text-muted">Apply from your account page to start earning commission on referrals.</p>
+        <p className="mt-2 text-sm text-muted">Join the program from your account, then enroll into the apps you want to promote.</p>
         <div className="mt-6">
           <Button href="/account" variant="outline" size="sm">Go to account</Button>
         </div>
@@ -219,106 +219,11 @@ export function InfluencerPortal() {
     )
   }
 
-  if (influencer.status === 'pending') {
-    return (
-      <Card className="mx-auto mt-16 max-w-sm text-center">
-        <p className="kicker justify-center">Partner portal</p>
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <Badge>pending</Badge>
-          <p className="text-sm text-muted">Application under review</p>
-        </div>
-        <p className="mt-4 text-sm text-muted">
-          We've received your application and will review it shortly. You'll be able to create a promo code once approved.
-        </p>
-      </Card>
-    )
-  }
-
-  if (influencer.status === 'rejected') {
-    return (
-      <Card className="mx-auto mt-16 max-w-sm text-center">
-        <p className="kicker justify-center">Partner portal</p>
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <Badge tone="danger">rejected</Badge>
-        </div>
-        <p className="mt-4 text-sm text-muted">Your application was not approved. You can apply again from your account page.</p>
-        <div className="mt-6">
-          <Button href="/account" variant="outline" size="sm">Reapply</Button>
-        </div>
-      </Card>
-    )
-  }
-
-  const shareLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/?ref=${influencer.promoCode ?? ''}`
+  const { apps, availableApps, earnings } = data
 
   return (
     <div className="space-y-6">
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="kicker">Promo code</p>
-            <p className="mt-2 text-sm text-muted">Share your unique code to earn commissions</p>
-          </div>
-          <Badge tone="success">approved</Badge>
-        </div>
-
-        {influencer.promoCode ? (
-          <div className="mt-5 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="rounded-lg border-2 border-line-strong bg-bg-raised px-3 py-2 font-mono text-sm font-medium tracking-wider text-accent">{influencer.promoCode}</code>
-              <code className="grow truncate rounded-lg border border-line bg-card px-3 py-2 font-mono text-xs text-muted">{shareLink}</code>
-              <Button variant="outline" size="sm" onClick={() => void copyShareLink()}>Copy link</Button>
-            </div>
-            {actionMsg ? <p role="status" className="text-xs text-muted">{actionMsg}</p> : null}
-            <div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCustomCode(influencer.promoCode || '')}
-                className="text-xs"
-              >
-                Change code
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {!influencer.promoCode || customCode ? (
-          <div className="mt-5 space-y-3 border-t border-line pt-5">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-              {!influencer.promoCode ? 'Pick or create your promo code' : 'Create a new code'}
-            </p>
-            {suggestions.length > 0 && !customCode ? (
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((s) => (
-                  <Button key={s} variant="outline" size="sm" onClick={() => void pickCode(s)} disabled={codeLoading}>
-                    {s}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-            {customCode || suggestions.length === 0 ? (
-              <div className="flex gap-2">
-                <div className="grow">
-                  <Input
-                    label="Custom code"
-                    placeholder="e.g., AKSHAY10"
-                    value={customCode}
-                    onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
-                    error={codeError ?? undefined}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button size="sm" onClick={() => void pickCode(customCode)} disabled={codeLoading || !customCode}>
-                    {codeLoading ? 'Setting…' : 'Set'}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            {codeError ? <p role="alert" className="text-xs text-red-500">{codeError}</p> : null}
-          </div>
-        ) : null}
-      </Card>
+      {msg ? <p role="status" className="text-xs text-muted">{msg}</p> : null}
 
       {earnings ? (
         <>
@@ -328,81 +233,184 @@ export function InfluencerPortal() {
             <Stat label="Paid out" value={formatINR(earnings.paidPaise)} />
           </div>
 
-          {referrals.length === 0 ? (
-            <Card className="text-center">
-              <p className="text-sm text-muted">
-                No referrals yet — share your link or code and they will show up here.
-              </p>
-            </Card>
-          ) : null}
-
-          {referrals.length > 0 ? (
-            <Card>
-              <p className="kicker">Referrals</p>
-              <div className="mt-4">
-                <Table head={['Date', 'Type', 'Plan', 'Commission']}>
-                  {referrals.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-3 font-mono text-sm">{new Date(r.createdAt).toLocaleDateString()}</td>
-                      <td className="px-4 py-3 text-sm capitalize">{r.type}</td>
-                      <td className="px-4 py-3 text-sm">
-                        {r.planId ? (
-                          <span>
-                            <span className="text-accent">↳</span> {r.planId}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-fg">{formatINR(r.commissionPaise)}</td>
-                    </tr>
-                  ))}
-                </Table>
+          <Card>
+            {earnings.payoutRequest ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="kicker">Payout</p>
+                  <p className="mt-2 text-sm text-muted">
+                    Requested {formatINR(earnings.payoutRequest.amountPaise)} on{' '}
+                    {new Date(earnings.payoutRequest.requestedAt).toLocaleDateString()} — pending review.
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-muted">
+                    Paying to <span className="text-fg">{earnings.payoutRequest.upiId}</span>
+                  </p>
+                </div>
+                <Badge>requested</Badge>
               </div>
-              {referralsError ? (
-                <p role="alert" className="mt-4 text-center text-sm text-red-500">
-                  Couldn’t load more referrals — try again.
+            ) : earnings.balancePaise < data.minPayoutPaise ? (
+              <div>
+                <p className="kicker">Payout</p>
+                <p className="mt-2 text-sm text-muted">
+                  Reach {formatINR(data.minPayoutPaise)} to request a payout — you’re at {formatINR(earnings.balancePaise)}.
                 </p>
-              ) : null}
-              {referralsCursor ? (
-                <div className="mt-4 flex justify-center">
-                  <Button variant="outline" size="sm" disabled={referralsPending} onClick={() => void loadMoreReferrals()}>
-                    {referralsPending ? 'Loading…' : 'Load more'}
+              </div>
+            ) : (
+              <div>
+                <p className="kicker">Payout</p>
+                <p className="mt-2 text-sm text-muted">Withdraw your {formatINR(earnings.balancePaise)} balance. This is your combined balance across all apps.</p>
+                <div className="mt-4 flex flex-wrap items-end gap-2">
+                  <div className="grow sm:max-w-xs">
+                    <Input label="UPI ID" placeholder="name@bank" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+                  </div>
+                  <Button size="sm" disabled={busy === 'payout' || !upiId.trim()} onClick={() => void requestPayout()}>
+                    {busy === 'payout' ? 'Requesting…' : 'Request payout'}
                   </Button>
                 </div>
-              ) : null}
-            </Card>
-          ) : null}
-
-          {payouts.length > 0 ? (
-            <Card>
-              <p className="kicker">Payouts</p>
-              <ul className="mt-4 divide-y divide-line rounded-2xl border border-line text-sm">
-                {payouts.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="font-mono text-fg">{new Date(p.paidAt).toLocaleDateString()}</p>
-                      <p className="mt-0.5 text-xs text-muted">{p.note}</p>
-                    </div>
-                    <p className="font-medium text-fg">{formatINR(p.amountPaise)}</p>
-                  </li>
-                ))}
-              </ul>
-              {payoutsError ? (
-                <p role="alert" className="mt-4 text-center text-sm text-red-500">
-                  Couldn’t load more payouts — try again.
-                </p>
-              ) : null}
-              {payoutsCursor ? (
-                <div className="mt-4 flex justify-center">
-                  <Button variant="outline" size="sm" disabled={payoutsPending} onClick={() => void loadMorePayouts()}>
-                    {payoutsPending ? 'Loading…' : 'Load more'}
-                  </Button>
-                </div>
-              ) : null}
-            </Card>
-          ) : null}
+              </div>
+            )}
+          </Card>
         </>
+      ) : null}
+
+      <div>
+        <p className="kicker">Your apps</p>
+        <div className="mt-4 space-y-4">
+          {apps.map((app) => {
+            const shareLink = `${origin()}/apps/${app.appId}?ref=${app.promoCode ?? ''}`
+            const editing = editApp === app.appId
+            return (
+              <Card key={app.appId}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display text-lg font-bold text-fg">{app.name}</h3>
+                    {app.status === 'approved' ? (
+                      <p className="mt-0.5 font-mono text-xs uppercase tracking-[0.14em] text-muted">
+                        {app.discountPct}% off · earned {formatINR(app.commissionPaise)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Badge tone={app.status === 'approved' ? 'success' : app.status === 'pending' ? 'default' : 'danger'}>
+                    {app.status}
+                  </Badge>
+                </div>
+
+                {app.status === 'pending' ? (
+                  <p className="mt-3 text-sm text-muted">Application under review — you can set a promo code once approved.</p>
+                ) : null}
+                {app.status === 'rejected' ? (
+                  <p className="mt-3 text-sm text-muted">Not approved for this app.</p>
+                ) : null}
+
+                {app.status === 'approved' ? (
+                  <div className="mt-4 space-y-3">
+                    {app.promoCode ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="rounded-lg border-2 border-line-strong bg-bg-raised px-3 py-2 font-mono text-sm font-medium tracking-wider text-accent">{app.promoCode}</code>
+                        <code className="grow truncate rounded-lg border border-line bg-card px-3 py-2 font-mono text-xs text-muted">{shareLink}</code>
+                        <Button variant="outline" size="sm" onClick={() => void copyLink(shareLink)}>Copy link</Button>
+                      </div>
+                    ) : null}
+
+                    {!app.promoCode || editing ? (
+                      <div className="space-y-3 border-t border-line pt-3">
+                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+                          {app.promoCode ? 'Create a new code' : 'Pick or create your promo code'}
+                        </p>
+                        {app.suggestions.length > 0 && !editing ? (
+                          <div className="flex flex-wrap gap-2">
+                            {app.suggestions.map((s) => (
+                              <Button key={s} variant="outline" size="sm" disabled={busy === `code:${app.appId}`} onClick={() => void pickCode(app.appId, s)}>
+                                {s}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : null}
+                        <div className="flex items-end gap-2">
+                          <div className="grow">
+                            <Input label="Custom code" placeholder="e.g. AKSHAY10" value={customCode} onChange={(e) => setCustomCode(e.target.value.toUpperCase())} />
+                          </div>
+                          <Button size="sm" disabled={busy === `code:${app.appId}` || !customCode} onClick={() => void pickCode(app.appId, customCode)}>
+                            {busy === `code:${app.appId}` ? 'Setting…' : 'Set'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setEditApp(app.appId); setCustomCode('') }}>
+                        Change code
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+              </Card>
+            )
+          })}
+
+          {availableApps.length > 0 ? (
+            <Card>
+              <p className="kicker">Enroll in more apps</p>
+              <div className="mt-3 space-y-2">
+                {availableApps.map((a) => (
+                  <div key={a.appId} className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-fg">{a.name}</span>
+                    <Button size="sm" variant="outline" disabled={busy === `enroll:${a.appId}`} onClick={() => void enrollApp(a.appId)}>
+                      {busy === `enroll:${a.appId}` ? 'Enrolling…' : 'Enroll'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+      </div>
+
+      {referrals.length > 0 ? (
+        <Card>
+          <p className="kicker">Referrals</p>
+          <div className="mt-4">
+            <Table head={['Date', 'App', 'Type', 'Commission']}>
+              {referrals.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-4 py-3 font-mono text-sm">{new Date(r.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-sm">{r.appId ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm capitalize">{r.type}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-fg">{formatINR(r.commissionPaise)}</td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+          {referralsCursor ? (
+            <div className="mt-4 flex justify-center">
+              <Button variant="outline" size="sm" disabled={pageBusy} onClick={() => void loadMore('referrals')}>
+                {pageBusy ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {payouts.length > 0 ? (
+        <Card>
+          <p className="kicker">Payouts</p>
+          <ul className="mt-4 divide-y divide-line rounded-2xl border border-line text-sm">
+            {payouts.map((p) => (
+              <li key={p.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-mono text-fg">{new Date(p.paidAt).toLocaleDateString()}</p>
+                  <p className="mt-0.5 text-xs text-muted">{p.note}</p>
+                </div>
+                <p className="font-medium text-fg">{formatINR(p.amountPaise)}</p>
+              </li>
+            ))}
+          </ul>
+          {payoutsCursor ? (
+            <div className="mt-4 flex justify-center">
+              <Button variant="outline" size="sm" disabled={pageBusy} onClick={() => void loadMore('payouts')}>
+                {pageBusy ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
+        </Card>
       ) : null}
     </div>
   )

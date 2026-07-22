@@ -87,3 +87,6 @@ export const APPS: AppInfo[] = [
 export function getApp(id: string): AppInfo | undefined {
   return APPS.find((a) => a.id === id)
 }
+
+/** The original / primary app. Legacy single-app flows default to this. */
+export const DEFAULT_APP_ID = 'crackloop'

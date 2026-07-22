@@ -8,10 +8,10 @@ export const metadata: Metadata = {
 }
 
 const STEPS = [
-  { n: '01', title: 'Apply', body: 'Sign in with Google and apply from your account page with links to your social profiles.' },
-  { n: '02', title: 'Get approved', body: 'Every application is reviewed personally. Once approved, you pick your own promo code.' },
-  { n: '03', title: 'Share your code', body: 'Share your promo code or referral link anywhere — posts, videos, bios, communities.' },
-  { n: '04', title: 'Earn on every sale', body: 'You earn commission whenever someone subscribes or buys with your code. Track it live in your portal.' },
+  { n: '01', title: 'Join once', body: 'Sign in with Google and join the program from your account with links to your social profiles.' },
+  { n: '02', title: 'Enroll per app', body: 'Pick the apps you want to promote — enroll in one or many. Each enrollment is reviewed personally.' },
+  { n: '03', title: 'Get your codes', body: 'Once approved for an app, create a promo code for it. Its link opens that app’s page for your audience.' },
+  { n: '04', title: 'Earn on every sale', body: 'Commission lands whenever someone buys with your code. Track every app’s referrals in one portal.' },
 ]
 
 const PERKS = [
@@ -44,8 +44,8 @@ export default function PartnersPage() {
             Share apps you believe in. <span className="loop-underline">Get paid.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted">
-            Recommend CrackLoop to your audience with your own promo code — they save on every plan,
-            you earn commission on every purchase.
+            Recommend the Impact Loop apps you love with your own promo code — one per app. Your
+            audience saves on every plan, you earn commission on every purchase.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Button href="/account" size="lg">Apply now</Button>

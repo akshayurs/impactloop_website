@@ -1,14 +1,22 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { PromoInput } from '@/components/promo-input'
 import type { Plan } from '@/config/plans'
 import { useAuth } from '@/lib/auth-context'
 
+type RazorpayInstance = { open: () => void; on: (event: string, cb: (resp: unknown) => void) => void }
+
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void }
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance
   }
+}
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
 }
 
 function loadRazorpayScript(): Promise<void> {
@@ -22,11 +30,18 @@ function loadRazorpayScript(): Promise<void> {
   })
 }
 
+const SUPPORT_EMAIL = 'impactloopapps@gmail.com'
+
 export function CheckoutButton({ plan }: { plan: Plan }) {
   const { user, signIn } = useAuth()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [promoCode, setPromoCode] = useState<string | null>(null)
+  const [invite, setInvite] = useState<string | null>(null)
+
+  useEffect(() => {
+    setInvite(getCookie('il_ref'))
+  }, [])
 
   async function startCheckout() {
     if (!user) {
@@ -51,15 +66,17 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
         key: data.keyId,
         name: 'Impact Loop',
         theme: { color: '#e05d10' },
+        modal: { ondismiss: () => setPending(false) },
       }
+      let rzp: RazorpayInstance
       if (data.mode === 'subscription') {
-        new window.Razorpay!({
+        rzp = new window.Razorpay!({
           ...base,
           subscription_id: data.subscriptionId,
           handler: () => window.location.assign('/account'),
-        }).open()
+        })
       } else {
-        new window.Razorpay!({
+        rzp = new window.Razorpay!({
           ...base,
           order_id: data.orderId,
           amount: data.amountPaise,
@@ -76,13 +93,15 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
                 }),
               })
               if (verifyRes.ok) window.location.assign('/account')
-              else setError('Payment received but verification failed — contact support.')
+              else setError('Payment received but we could not confirm it yet.')
             } catch {
-              setError('Payment received but verification failed — contact support.')
+              setError('Payment received but we could not confirm it yet.')
             }
           },
-        }).open()
+        })
       }
+      rzp.on('payment.failed', () => setError('Payment failed — no money was charged. Please try again.'))
+      rzp.open()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Checkout failed. Try again.')
     } finally {
@@ -96,17 +115,29 @@ export function CheckoutButton({ plan }: { plan: Plan }) {
       <Button onClick={() => void startCheckout()} disabled={pending} className="w-full">
         {pending ? 'Starting…' : label}
       </Button>
-      <details className="group">
-        <summary className="cursor-pointer list-none text-xs text-muted underline-offset-2 hover:text-fg hover:underline [&::-webkit-details-marker]:hidden">
-          Have a promo code?
-        </summary>
-        <div className="mt-2">
-          <PromoInput onApply={setPromoCode} durationMonths={plan.durationMonths} />
+      {invite ? (
+        <div>
+          <p className="text-xs text-muted">Invite code applied from your link:</p>
+          <div className="mt-2">
+            <PromoInput initialCode={invite} onApply={setPromoCode} durationMonths={plan.durationMonths} />
+          </div>
         </div>
-      </details>
+      ) : (
+        <details className="group">
+          <summary className="cursor-pointer list-none text-xs text-muted underline-offset-2 hover:text-fg hover:underline [&::-webkit-details-marker]:hidden">
+            Have a promo code?
+          </summary>
+          <div className="mt-2">
+            <PromoInput onApply={setPromoCode} durationMonths={plan.durationMonths} />
+          </div>
+        </details>
+      )}
       {error ? (
         <p role="alert" className="text-xs text-red-500">
-          {error}
+          {error}{' '}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">
+            Contact support
+          </a>
         </p>
       ) : null}
     </div>

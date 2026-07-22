@@ -1,21 +1,37 @@
-import { revalidateTag } from 'next/cache'
+import { revalidateTag, unstable_cache } from 'next/cache'
 import { AggregateField } from 'firebase-admin/firestore'
 import type { StoredPlan } from '@/config/plans'
 import { adminAuth, adminDb } from './firebase-admin'
 import { PLANS_CACHE_TAG } from './plans-store'
-import { createPlan } from './razorpay'
+import { cancelSubscriptionAtCycleEnd, createPlan } from './razorpay'
 
 const DAY_MS = 86_400_000
 
-export async function getMetrics() {
+export const METRICS_CACHE_TAG = 'admin-metrics'
+
+/** All Firebase Auth users, paginated (listUsers caps at 1000 per page). */
+async function listAllAuthUsers() {
+  const out: Awaited<ReturnType<ReturnType<typeof adminAuth>['listUsers']>>['users'] = []
+  let pageToken: string | undefined
+  do {
+    const page = await adminAuth().listUsers(1000, pageToken)
+    out.push(...page.users)
+    pageToken = page.pageToken
+  } while (pageToken)
+  return out
+}
+
+/* Reads several growing collections; wrapped in a short-lived cache (below) so the
+   admin overview can be loaded repeatedly without re-scanning on every request. */
+async function computeMetrics() {
   const db = adminDb()
   const now = Date.now()
-  const [paymentsSnap, eventsSnap, usersResult, appsSnap, infSnap] = await Promise.all([
+  const [paymentsSnap, eventsSnap, allUsers, appsSnap, infSnap] = await Promise.all([
     db.collectionGroup('payments').get(),
     db.collection('webhookEvents').get(),
-    adminAuth().listUsers(1000),
+    listAllAuthUsers(),
     db.collectionGroup('apps').get(),
-    db.collection('influencers').get(),
+    db.collection('influencerApps').get(),
   ])
 
   let totalRevenuePaise = 0
@@ -34,7 +50,7 @@ export async function getMetrics() {
   })
   recentPayments.sort((a, b) => b.createdAt - a.createdAt)
 
-  const newUsers7d = usersResult.users.filter((u) => {
+  const newUsers7d = allUsers.filter((u) => {
     const t = Date.parse(u.metadata.creationTime ?? '')
     return Number.isFinite(t) && t > now - 7 * DAY_MS
   }).length
@@ -50,6 +66,7 @@ export async function getMetrics() {
     }
   })
 
+  // Counts per-app enrollment status (a partner in N apps counts once per app).
   const influencersByStatus: Record<string, number> = {}
   infSnap.forEach((d: any) => {
     const status = d.data().status ?? 'unknown'
@@ -75,7 +92,7 @@ export async function getMetrics() {
     revenue7dPaise,
     paymentCount: paymentsSnap.size,
     recentPayments: recentPayments.slice(0, 5),
-    userCount: usersResult.users.length,
+    userCount: allUsers.length,
     newUsers7d,
     subsByStatus,
     subsByTier,
@@ -87,6 +104,14 @@ export async function getMetrics() {
     lastWebhookAt: lastWebhookAt || null,
   }
 }
+
+/* Short cache so repeated admin-overview loads don't re-scan payments/entitlements
+   every request. Invalidate via revalidateTag(METRICS_CACHE_TAG) on a payment write
+   for near-real-time revenue, or accept up to ~60s staleness. */
+export const getMetrics = unstable_cache(computeMetrics, ['admin-metrics'], {
+  revalidate: 60,
+  tags: [METRICS_CACHE_TAG],
+})
 
 export type UserPlanSummary = { appId: string; status: string; tier: string | null }
 
@@ -146,15 +171,24 @@ export async function getUserDetail(uid: string) {
 }
 
 export async function revokeEntitlement(uid: string, appId: string): Promise<void> {
-  await adminDb()
-    .doc(`users/${uid}/apps/${appId}`)
-    .set(
-      {
-        subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null },
-        entitlements: { adFree: false, unlimitedAi: false, tier: null },
-      },
-      { merge: true },
-    )
+  const ref = adminDb().doc(`users/${uid}/apps/${appId}`)
+  const snap = await ref.get()
+  const subId = snap.data()?.subscription?.razorpaySubscriptionId
+  if (subId) {
+    // Stop future charges too — otherwise a revoked user keeps getting billed.
+    try {
+      await cancelSubscriptionAtCycleEnd(subId)
+    } catch (err) {
+      console.error('revoke: razorpay cancel failed', err)
+    }
+  }
+  await ref.set(
+    {
+      subscription: { status: 'revoked', autoRenewing: false, expiryTimeMillis: null },
+      entitlements: { adFree: false, unlimitedAi: false, tier: null },
+    },
+    { merge: true },
+  )
 }
 
 const PLAN_ID_RE = /^[a-z0-9-]{3,40}$/

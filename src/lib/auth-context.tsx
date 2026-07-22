@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { getFirebaseAuth } from './firebase/client'
+import { MOCK_ROLE, mockUser } from './mock'
 
 type AuthState = {
   user: User | null
@@ -19,10 +20,17 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Start unresolved on both server and first client render so SSR HTML matches
+  // hydration; the mock user or real auth state is applied after mount.
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (MOCK_ROLE) {
+      setUser(mockUser)
+      setLoading(false)
+      return
+    }
     return onAuthStateChanged(getFirebaseAuth(), (u) => {
       setUser(u)
       setLoading(false)

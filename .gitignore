@@ -13,3 +13,7 @@ pnpm-debug.log*
 .vercel
 .env*
 !.env*.example
+
+# Playwright test output
+/test-results/
+/playwright-report/

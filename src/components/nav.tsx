@@ -7,7 +7,7 @@ import { Logo } from './logo'
 import { ThemeToggle } from './theme-toggle'
 
 const LINKS = [
-  { href: '/apps/crackloop', label: 'CrackLoop' },
+  { href: '/apps', label: 'Apps' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/partners', label: 'Partners' },
   { href: '/faq', label: 'FAQ' },
@@ -24,7 +24,7 @@ export function Nav() {
         </Link>
         <div className="hidden items-center gap-1 md:flex">
           {LINKS.map((l) => {
-            const active = pathname === l.href
+            const active = pathname === l.href || pathname.startsWith(`${l.href}/`)
             return (
               <Link
                 key={l.href}

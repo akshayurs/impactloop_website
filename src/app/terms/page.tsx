@@ -70,14 +70,38 @@ export default function TermsPage() {
       </p>
 
       <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">
-        5. Purchases &amp; in-app products
+        5. Purchases, billing &amp; refunds
       </h2>
       <p className="mt-3 text-muted">
-        Some apps offer optional paid features (for example, &ldquo;CrackLoop Pro&rdquo;) through
-        in-app purchases. All purchases are processed by the relevant app store, and are subject to
-        that store&rsquo;s payment terms and refund policies. Unless required by applicable law
-        (including Indian consumer-protection law) or stated otherwise, purchases are non-refundable.
-        Prices and the features included in any paid tier may change over time.
+        You can buy paid plans (for example, &ldquo;CrackLoop Pro&rdquo;) in two ways, each with its own billing and
+        refund terms:
+      </p>
+      <ul className="mt-3 space-y-2 text-muted">
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span>
+            <strong className="text-fg">On the website</strong>, payments are processed by Razorpay. Subscriptions renew
+            automatically for the chosen billing period until you cancel; you can cancel any time from your account, and
+            access continues until the end of the period you have already paid for. A lifetime purchase is a single,
+            one-time payment with no recurring charge. Web purchases are governed by our{' '}
+            <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" href="/refund">
+              Refund &amp; Cancellation Policy
+            </a>
+            .
+          </span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span aria-hidden className="mt-1 text-accent">↳</span>
+          <span>
+            <strong className="text-fg">Inside the mobile apps</strong>, purchases are processed by the relevant app
+            store (such as Google Play) and are subject to that store&rsquo;s payment terms and refund policies.
+          </span>
+        </li>
+      </ul>
+      <p className="mt-3 text-muted">
+        Unless required by applicable law (including Indian consumer-protection law) or stated otherwise, purchases are
+        non-refundable; web refund requests are reviewed case by case as described in our Refund &amp; Cancellation
+        Policy. Prices and the features included in any paid tier may change over time.
       </p>
 
       <h2 className="mt-10 border-b border-line pb-2 font-display text-xl font-semibold text-fg">6. Intellectual property</h2>

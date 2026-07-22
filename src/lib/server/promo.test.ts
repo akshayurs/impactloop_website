@@ -10,7 +10,7 @@ import {
   type PromoDoc,
 } from './promo'
 
-const doc: PromoDoc = { code: 'AKSHAY10', ownerUid: 'inf1', active: true, createdAt: 0, expiresAt: 100 }
+const doc: PromoDoc = { code: 'AKSHAY10', ownerUid: 'inf1', appId: 'crackloop', active: true, createdAt: 0, expiresAt: 100 }
 
 describe('code shape', () => {
   it('normalizes and validates', () => {

@@ -1,9 +1,11 @@
 import { adminDb } from '@/lib/server/firebase-admin'
-import { getInfluencer } from '@/lib/server/influencer'
+import { getEnrollment } from '@/lib/server/influencer-apps'
+import { getPartnerConfig } from '@/lib/server/partner-config'
 import { getPlanById } from '@/lib/server/plans-store'
-import { discountedPaise, freeDaysFor, isPromoUsable, normalizeCode, type PromoDoc } from '@/lib/server/promo'
+import { discountedPaise, freeDaysFor, isPromoUsable, type PromoDoc } from '@/lib/server/promo'
 import { createOrder, createSubscription } from '@/lib/server/razorpay'
 import { isLiveStatus } from '@/lib/server/entitlements'
+import { checkoutSchema, parseBody, ValidationError } from '@/lib/server/validation'
 import { requireUser, UnauthorizedError } from '@/lib/server/verify-token'
 
 export const runtime = 'nodejs'
@@ -18,25 +20,29 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const body = await req.json().catch(() => ({}))
-    if (typeof body.planId !== 'string') return Response.json({ error: 'planId required' }, { status: 400 })
+    const { planId, promoCode } = await parseBody(req, checkoutSchema)
+
+    const plan = await getPlanById(planId)
+    if (!plan || !plan.active) return Response.json({ error: 'unknown plan' }, { status: 400 })
 
     let promo: { code: string; ownerUid: string; discountPct: number } | null = null
-    if (body.promoCode !== undefined) {
-      if (typeof body.promoCode !== 'string') return Response.json({ error: 'invalid promo code' }, { status: 400 })
-      const code = normalizeCode(body.promoCode)
+    if (promoCode !== undefined) {
+      const code = promoCode // normalized + format-validated by the schema
       const promoSnap = await adminDb().doc(`promoCodes/${code}`).get()
       const promoDoc = promoSnap.exists ? (promoSnap.data() as PromoDoc) : undefined
       const usable = isPromoUsable(promoDoc, Date.now())
       if (!usable.ok) return Response.json({ error: `promo ${usable.reason}` }, { status: 400 })
       if (promoDoc!.ownerUid === uid) return Response.json({ error: 'cannot use your own code' }, { status: 400 })
-      const owner = await getInfluencer(promoDoc!.ownerUid)
-      if (!owner || owner.status !== 'approved') return Response.json({ error: 'promo inactive' }, { status: 400 })
-      promo = { code, ownerUid: promoDoc!.ownerUid, discountPct: owner.discountPct }
+      if (promoDoc!.appId !== plan.appId) return Response.json({ error: 'promo not valid for this app' }, { status: 400 })
+      const [enrollment, config] = await Promise.all([
+        getEnrollment(promoDoc!.ownerUid, plan.appId),
+        getPartnerConfig(plan.appId),
+      ])
+      if (!enrollment || enrollment.status !== 'approved' || !config.enabled) {
+        return Response.json({ error: 'promo inactive' }, { status: 400 })
+      }
+      promo = { code, ownerUid: promoDoc!.ownerUid, discountPct: config.discountPct }
     }
-
-    const plan = await getPlanById(body.planId)
-    if (!plan || !plan.active) return Response.json({ error: 'unknown plan' }, { status: 400 })
 
     const existing = await adminDb().doc(`users/${uid}/apps/${plan.appId}`).get()
     const status = existing.exists ? existing.data()?.subscription?.status : undefined
@@ -94,6 +100,7 @@ export async function POST(req: Request): Promise<Response> {
       ...(promo ? { promo: { code: promo.code, discountPct: promo.discountPct, freeDays } } : {}),
     })
   } catch (err) {
+    if (err instanceof ValidationError) return Response.json({ error: err.message }, { status: 400 })
     console.error('checkout failed', err)
     return Response.json({ error: 'checkout failed' }, { status: 500 })
   }

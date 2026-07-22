@@ -12,7 +12,9 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
   const { appId } = await params
   const app = getApp(appId)
-  return app ? { title: app.name, description: app.tagline } : {}
+  return app
+    ? { title: app.name, description: app.tagline, alternates: { canonical: `/apps/${appId}` } }
+    : {}
 }
 
 export default async function AppPage({ params }: { params: Promise<{ appId: string }> }) {
@@ -27,7 +29,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
         <div aria-hidden className="orbit left-[70%] top-[-20rem] h-[40rem] w-[40rem]" />
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <p className="kicker fade-up">The first loop</p>
+            <p className="kicker fade-up">{app.status === 'live' ? 'Now on Play Store' : 'Coming soon'}</p>
             <div className="fade-up fade-up-1 mt-6 flex flex-wrap items-center gap-4">
               <h1 className="font-display text-5xl font-bold text-fg sm:text-6xl">{app.name}</h1>
               <Badge tone={app.status === 'live' ? 'success' : 'default'}>
@@ -39,21 +41,27 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             </p>
             <p className="fade-up fade-up-2 mt-5 max-w-xl text-lg text-muted">{app.description}</p>
             <div className="fade-up fade-up-3 mt-8 flex flex-wrap gap-3">
-              <Button href={app.playStoreUrl} size="lg" target="_blank">Get it on Google Play</Button>
-              <Button href="/pricing" size="lg" variant="outline">Web pricing</Button>
+              {app.status === 'live' && app.playStoreUrl ? (
+                <Button href={app.playStoreUrl} size="lg" target="_blank">Get it on Google Play</Button>
+              ) : null}
+              <Button href="/pricing" size="lg" variant="outline">
+                {app.status === 'live' ? 'Web pricing' : 'See pricing'}
+              </Button>
             </div>
           </div>
-          <div className="fade-up fade-up-2 relative mx-auto w-64 sm:w-72">
-            <div aria-hidden className="loop-ring absolute -right-8 -top-6 h-20 w-20 opacity-60" />
-            <Image
-              src={app.screenshots[0]}
-              alt={`${app.name} main screen`}
-              width={450}
-              height={780}
-              priority
-              className="card-lift -rotate-2 rounded-2xl border-2 border-line-strong"
-            />
-          </div>
+          {app.screenshots[0] ? (
+            <div className="fade-up fade-up-2 relative mx-auto w-64 sm:w-72">
+              <div aria-hidden className="loop-ring absolute -right-8 -top-6 h-20 w-20 opacity-60" />
+              <Image
+                src={app.screenshots[0]}
+                alt={`${app.name} main screen`}
+                width={450}
+                height={780}
+                priority
+                className="card-lift -rotate-2 rounded-2xl border-2 border-line-strong"
+              />
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -133,7 +141,9 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             Free to download on Google Play. Upgrade on the web when you are ready — and pay less.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button href={app.playStoreUrl} size="lg" target="_blank">Download {app.name}</Button>
+            {app.status === 'live' && app.playStoreUrl ? (
+              <Button href={app.playStoreUrl} size="lg" target="_blank">Download {app.name}</Button>
+            ) : null}
             <Button href="/pricing" size="lg" variant="outline">See plans</Button>
           </div>
         </div>

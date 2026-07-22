@@ -10,8 +10,11 @@ describe('formatINR', () => {
   it('formats fractional rupees with two decimals', () => {
     expect(formatINR(9950)).toBe('₹99.50')
   })
-  it('throws on non-integer or negative paise', () => {
+  it('formats negative amounts (e.g. an over-paid partner balance)', () => {
+    expect(formatINR(-129900)).toBe('-₹1,299')
+    expect(formatINR(-9950)).toBe('-₹99.50')
+  })
+  it('throws on non-integer paise', () => {
     expect(() => formatINR(99.5)).toThrow()
-    expect(() => formatINR(-1)).toThrow()
   })
 })

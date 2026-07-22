@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
+import { Analytics } from '@/components/analytics'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Nav } from '@/components/nav'
 import { Footer } from '@/components/footer'
@@ -17,7 +18,18 @@ export const metadata: Metadata = {
   title: { default: 'Impact Loop — apps that build habits that stick', template: '%s — Impact Loop' },
   description:
     'Indie app studio building focused learning apps. CrackLoop turns tech-interview prep into short daily loops.',
-  openGraph: { siteName: 'Impact Loop', type: 'website' },
+  icons: { icon: '/favicon.svg', apple: '/apple-touch-icon.png' },
+  openGraph: { siteName: 'Impact Loop', type: 'website', images: ['/og.png'] },
+  twitter: { card: 'summary_large_image', images: ['/og.png'] },
+}
+
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Impact Loop',
+  url: SITE_URL,
+  logo: `${SITE_URL}/apple-touch-icon.png`,
+  email: 'impactloopapps@gmail.com',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
+        <Analytics />
         <ThemeProvider>
           <AuthProvider>
             <ReferralCatcher />

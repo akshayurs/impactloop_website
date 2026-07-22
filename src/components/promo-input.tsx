@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -11,13 +11,20 @@ function calculateFreeDays(durationMonths: number | null, discountPct: number): 
 export function PromoInput({
   onApply,
   durationMonths,
+  initialCode,
 }: {
   onApply: (code: string | null) => void
   durationMonths: number | null
+  initialCode?: string
 }) {
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(initialCode ?? '')
   const [result, setResult] = useState<{ valid: boolean; discountPct?: number; freeDays?: number; reason?: string } | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialCode) void validate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function validate() {
     if (!code.trim()) return

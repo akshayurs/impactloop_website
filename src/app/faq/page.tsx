@@ -67,9 +67,20 @@ const SECTIONS: { heading: string; items: { q: string; a: string }[] }[] = [
   },
 ]
 
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: SECTIONS.flatMap((s) => s.items).map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+
 export default function FaqPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <div className="hero-spot">
         <div className="mx-auto max-w-3xl px-4 pt-16 text-center sm:px-6 sm:pt-24">
           <p className="kicker justify-center">FAQ</p>

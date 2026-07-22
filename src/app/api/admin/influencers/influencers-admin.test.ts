@@ -2,24 +2,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   requireAdmin,
-  decideInfluencer,
-  updateInfluencerRates,
+  decideEnrollment,
+  updateAppCommission,
+  changeAppPromoCode,
+  getEnrollment,
+  listAppEnrollments,
+  getPartnerConfig,
   recordPayout,
+  requestPayout,
+  declinePayoutRequest,
+  normalizeUpiId,
   getEarnings,
-  changePromoCode,
   adminAuth,
   docGet,
-  docsGet,
 } = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
-  decideInfluencer: vi.fn(),
-  updateInfluencerRates: vi.fn(),
+  decideEnrollment: vi.fn(),
+  updateAppCommission: vi.fn(),
+  changeAppPromoCode: vi.fn(),
+  getEnrollment: vi.fn(),
+  listAppEnrollments: vi.fn(),
+  getPartnerConfig: vi.fn(),
   recordPayout: vi.fn(),
+  requestPayout: vi.fn(),
+  declinePayoutRequest: vi.fn(),
+  normalizeUpiId: vi.fn((v: string) => v),
   getEarnings: vi.fn(),
-  changePromoCode: vi.fn(),
   adminAuth: vi.fn(),
   docGet: vi.fn(),
-  docsGet: vi.fn(),
 }))
 
 vi.mock('@/lib/server/require-admin', () => ({
@@ -27,28 +37,25 @@ vi.mock('@/lib/server/require-admin', () => ({
   ForbiddenError: class extends Error { status = 403 },
 }))
 vi.mock('@/lib/server/verify-token', () => ({ UnauthorizedError: class extends Error { status = 401 } }))
-vi.mock('@/lib/server/influencer', () => ({
-  decideInfluencer,
-  updateInfluencerRates,
-  recordPayout,
-  getEarnings,
-  changePromoCode,
+vi.mock('@/lib/server/influencer', () => ({ recordPayout, requestPayout, declinePayoutRequest, normalizeUpiId, getEarnings }))
+vi.mock('@/lib/server/influencer-apps', () => ({
+  decideEnrollment,
+  updateAppCommission,
+  changeAppPromoCode,
+  getEnrollment,
+  listAppEnrollments,
+}))
+vi.mock('@/lib/server/partner-config', () => ({ getPartnerConfig }))
+vi.mock('@/lib/server/email/notify', () => ({
+  notifyInfluencerDecision: vi.fn().mockResolvedValue(undefined),
+  notifyPayoutRequest: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/lib/server/settings', () => ({
   getSettings: vi.fn().mockResolvedValue({ freeTrialEnabled: true, trialDays: 7, promoDefaultExpiryMonths: 3 }),
 }))
 vi.mock('@/lib/server/firebase-admin', () => ({
   adminAuth: () => adminAuth(),
-  adminDb: () => ({
-    collection: () => ({
-      orderBy: () => ({
-        limit: () => ({
-          get: () => docsGet(),
-          startAfter: () => ({ get: () => docsGet() }),
-        }),
-      }),
-    }),
-  }),
+  adminDb: () => ({ doc: (path: string) => ({ get: () => docGet(path) }) }),
 }))
 
 import { GET as influencersGET } from './route'
@@ -56,9 +63,13 @@ import { POST as influencersPOST } from './[uid]/route'
 
 const authed = { headers: { Authorization: 'Bearer t' } }
 
-describe('admin influencers guard', () => {
-  beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  getPartnerConfig.mockResolvedValue({ discountPct: 10, enabled: true })
+  docGet.mockResolvedValue({ exists: false, data: () => undefined })
+})
 
+describe('admin influencers guard', () => {
   it('401 when unauthenticated', async () => {
     const { UnauthorizedError } = await import('@/lib/server/verify-token')
     requireAdmin.mockRejectedValue(new UnauthorizedError('no'))
@@ -74,31 +85,22 @@ describe('admin influencers guard', () => {
 
 describe('GET /api/admin/influencers', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     requireAdmin.mockResolvedValue({ uid: 'admin', email: 'a@b.c' })
   })
 
-  it('list joins emails', async () => {
+  it('lists app enrollments joined with email + app-default discount', async () => {
     adminAuth.mockReturnValue({
       getUser: vi.fn(async (uid: string) => {
         if (uid === 'inf1') return { email: 'influencer@x.com' }
         throw new Error('not found')
       }),
     })
-    docsGet.mockResolvedValue({
-      docs: [
-        {
-          id: 'inf1',
-          data: () => ({
-            status: 'approved',
-            socialLinks: ['https://instagram.com/x'],
-            appliedAt: 100,
-            promoCode: 'AK10',
-            discountPct: 10,
-            commissionRates: { signupPaise: 500, perPlan: { 'p1': 1000 } },
-          }),
-        },
+    docGet.mockResolvedValue({ exists: true, data: () => ({ socialLinks: ['https://instagram.com/x'] }) })
+    listAppEnrollments.mockResolvedValue({
+      enrollments: [
+        { uid: 'inf1', appId: 'crackloop', status: 'approved', appliedAt: 100, promoCode: 'AK10', commissionRates: { signupPaise: 500, perPlan: { p1: 1000 } } },
       ],
+      nextCursor: null,
     })
     const res = await influencersGET(new Request('http://x', authed))
     const json = await res.json()
@@ -114,28 +116,34 @@ describe('GET /api/admin/influencers', () => {
 
 describe('POST /api/admin/influencers/[uid]', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     requireAdmin.mockResolvedValue({ uid: 'admin', email: 'a@b.c' })
   })
 
-  it('approve calls decideInfluencer', async () => {
+  it('approve calls decideEnrollment for the default app', async () => {
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'approve' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
     })
     expect(res.status).toBe(200)
-    expect(decideInfluencer).toHaveBeenCalledWith('inf1', 'approve', expect.any(Number))
+    expect(decideEnrollment).toHaveBeenCalledWith('inf1', 'crackloop', 'approved', expect.any(Number))
   })
 
-  it('reject calls decideInfluencer', async () => {
+  it('reject calls decideEnrollment', async () => {
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'reject' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
     })
     expect(res.status).toBe(200)
-    expect(decideInfluencer).toHaveBeenCalledWith('inf1', 'reject', expect.any(Number))
+    expect(decideEnrollment).toHaveBeenCalledWith('inf1', 'crackloop', 'rejected', expect.any(Number))
+  })
+
+  it('honors an explicit appId', async () => {
+    await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'approve', appId: 'loopquiz' }) }), {
+      params: Promise.resolve({ uid: 'inf1' }),
+    })
+    expect(decideEnrollment).toHaveBeenCalledWith('inf1', 'loopquiz', 'approved', expect.any(Number))
   })
 
   it('approve returns 400 on store error', async () => {
-    decideInfluencer.mockRejectedValue(new Error('only pending applications'))
+    decideEnrollment.mockRejectedValue(new Error('only pending enrollments'))
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'approve' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
     })
@@ -143,27 +151,27 @@ describe('POST /api/admin/influencers/[uid]', () => {
     expect((await res.json()).error).toMatch(/pending/)
   })
 
-  it('update-rates forwards fields', async () => {
+  it('update-rates forwards commission fields', async () => {
     const res = await influencersPOST(
       new Request('http://x', {
         ...authed,
         method: 'POST',
-        body: JSON.stringify({ action: 'update-rates', discountPct: 15, signupPaise: 500, perPlan: { p1: 1000 } }),
+        body: JSON.stringify({ action: 'update-rates', signupPaise: 500, perPlan: { p1: 1000 } }),
       }),
       { params: Promise.resolve({ uid: 'inf1' }) },
     )
     expect(res.status).toBe(200)
-    expect(updateInfluencerRates).toHaveBeenCalledWith('inf1', { discountPct: 15, signupPaise: 500, perPlan: { p1: 1000 } })
+    expect(updateAppCommission).toHaveBeenCalledWith('inf1', 'crackloop', { signupPaise: 500, perPlan: { p1: 1000 } })
   })
 
   it('update-rates returns 400 on validation error', async () => {
-    updateInfluencerRates.mockRejectedValue(new Error('discountPct must be 0-90'))
+    updateAppCommission.mockRejectedValue(new Error('signupPaise must be non-negative integer'))
     const res = await influencersPOST(
-      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'update-rates', discountPct: 95 }) }),
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'update-rates', signupPaise: -5 }) }),
       { params: Promise.resolve({ uid: 'inf1' }) },
     )
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toMatch(/0-90/)
+    expect((await res.json()).error).toMatch(/signupPaise/)
   })
 
   it('mark-paid respects balance error', async () => {
@@ -186,24 +194,68 @@ describe('POST /api/admin/influencers/[uid]', () => {
     expect(recordPayout).toHaveBeenCalledWith('inf1', 200, 'upi', expect.any(Number))
   })
 
+  it('decline-payout declines a pending request', async () => {
+    declinePayoutRequest.mockResolvedValue(undefined)
+    const res = await influencersPOST(
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'decline-payout' }) }),
+      { params: Promise.resolve({ uid: 'inf1' }) },
+    )
+    expect(res.status).toBe(200)
+    expect(declinePayoutRequest).toHaveBeenCalledWith('inf1', expect.any(Number))
+  })
+
+  it('request-payout requires an approved enrollment then creates the request', async () => {
+    getEnrollment.mockResolvedValue({ status: 'approved' })
+    requestPayout.mockResolvedValue({ amountPaise: 400, requestedAt: 1, upiId: 'ak@ybl' })
+    const res = await influencersPOST(
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'request-payout', upiId: 'ak@ybl' }) }),
+      { params: Promise.resolve({ uid: 'inf1' }) },
+    )
+    expect(res.status).toBe(200)
+    expect(normalizeUpiId).toHaveBeenCalledWith('ak@ybl')
+    expect(requestPayout).toHaveBeenCalledWith('inf1', 0, 'ak@ybl', expect.any(Number))
+  })
+
+  it('request-payout 400 when enrollment not approved', async () => {
+    getEnrollment.mockResolvedValue({ status: 'pending' })
+    const res = await influencersPOST(
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'request-payout', upiId: 'ak@ybl' }) }),
+      { params: Promise.resolve({ uid: 'inf1' }) },
+    )
+    expect(res.status).toBe(400)
+    expect(requestPayout).not.toHaveBeenCalled()
+  })
+
+  it('request-payout returns 400 on invalid UPI', async () => {
+    normalizeUpiId.mockImplementationOnce(() => {
+      throw new Error('enter a valid UPI ID (e.g. name@bank)')
+    })
+    const res = await influencersPOST(
+      new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'request-payout', upiId: 'bad' }) }),
+      { params: Promise.resolve({ uid: 'inf1' }) },
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/UPI/)
+    expect(requestPayout).not.toHaveBeenCalled()
+  })
+
   it('earnings action returns summary', async () => {
     getEarnings.mockResolvedValue({ totalCommissionPaise: 500, paidPaise: 100, balancePaise: 400, referrals: [], payouts: [] })
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'earnings' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
     })
     expect(res.status).toBe(200)
-    const json = await res.json()
-    expect(json.balancePaise).toBe(400)
+    expect((await res.json()).balancePaise).toBe(400)
   })
 
-  it('unknown action returns 400', async () => {
-    changePromoCode.mockResolvedValue({ code: 'NEWCODE10', expiresAt: 123 })
+  it('set-code calls changeAppPromoCode; unknown action 400', async () => {
+    changeAppPromoCode.mockResolvedValue({ code: 'NEWCODE10', expiresAt: 123 })
     const okRes = await influencersPOST(
       new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'set-code', code: 'newcode10' }) }),
       { params: Promise.resolve({ uid: 'inf1' }) },
     )
     expect(okRes.status).toBe(200)
-    expect(changePromoCode).toHaveBeenCalledWith('inf1', 'newcode10', expect.any(Number), 3)
+    expect(changeAppPromoCode).toHaveBeenCalledWith('inf1', 'crackloop', 'newcode10', expect.any(Number), 3)
 
     const res = await influencersPOST(new Request('http://x', { ...authed, method: 'POST', body: JSON.stringify({ action: 'nuke' }) }), {
       params: Promise.resolve({ uid: 'inf1' }),
